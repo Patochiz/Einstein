@@ -477,14 +477,20 @@ class pdf_einstein extends ModelePDFCommandes
 						$qty_with_unit .= ' '.$unit;
 					}
 					$pdf->SetXY($this->posxqty, $curY);
-					$pdf->MultiCell($this->posxdiscount - $this->posxqty - 0.8, 4, $qty_with_unit, 0, 'R');
+					if ($this->atleastonediscount) {
+						$pdf->MultiCell($this->posxdiscount - $this->posxqty - 0.8, 4, $qty_with_unit, 0, 'R');
+					} else {
+						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
+					}
 
 					// Discount on line
-					$pdf->SetXY($this->posxdiscount, $curY);
-					if ($object->lines[$i]->remise_percent) {
-						$pdf->SetXY($this->posxdiscount - 2, $curY);
-						$remise_percent = pdf_getlineremisepercent($object, $i, $outputlangs, $hidedetails);
-						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxdiscount + 2, 3, $remise_percent, 0, 'R');
+					if ($this->atleastonediscount) {
+						$pdf->SetXY($this->posxdiscount, $curY);
+						if ($object->lines[$i]->remise_percent) {
+							$pdf->SetXY($this->posxdiscount - 2, $curY);
+							$remise_percent = pdf_getlineremisepercent($object, $i, $outputlangs, $hidedetails);
+							$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxdiscount + 2, 3, $remise_percent, 0, 'R');
+						}
 					}
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
@@ -1226,7 +1232,11 @@ class pdf_einstein extends ModelePDFCommandes
 		$pdf->line($this->posxqty - 1, $tab_top, $this->posxqty - 1, $tab_top + $tab_height);
 		if (empty($hidetop)) {
 			$pdf->SetXY($this->posxqty - 1, $tab_top + 1);
-			$pdf->MultiCell($this->posxdiscount - $this->posxqty - 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+			if ($this->atleastonediscount) {
+				$pdf->MultiCell($this->posxdiscount - $this->posxqty - 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+			} else {
+				$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+			}
 		}
 
 		if ($this->atleastonediscount) {

@@ -613,9 +613,9 @@ class pdf_einstein extends ModelePDFCommandes
 					while ($pagenb < $pageposafter) {
 						$pdf->setPage($pagenb);
 						if ($pagenb == 1) {
-							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code, null, $object);
 						} else {
-							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code, null, $object);
 						}
 						$this->_pagefoot($pdf, $object, $outputlangs, 1);
 						$pagenb++;
@@ -630,9 +630,9 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 					if (isset($object->lines[$i + 1]->pagebreak) && $object->lines[$i + 1]->pagebreak) {
 						if ($pagenb == 1) {
-							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code, null, $object);
 						} else {
-							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code, null, $object);
 						}
 						$this->_pagefoot($pdf, $object, $outputlangs, 1);
 						// New page
@@ -649,38 +649,12 @@ class pdf_einstein extends ModelePDFCommandes
 
 				// Show square
 				if ($pagenb == 1) {
-					$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 0, 0, $object->multicurrency_code);
+					$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 0, 0, $object->multicurrency_code, null, $object);
 				} else {
-					$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 1, 0, $object->multicurrency_code);
+					$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 1, 0, $object->multicurrency_code, null, $object);
 				}
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
 
-				// Draw separate Liste Colis box on the right side
-				$listeColisX = $this->posxlistecolis;
-				$listeColisWidth = $this->page_largeur - $this->marge_droite - $listeColisX;
-				$listeColisHeight = $bottomlasttab - $tab_top;
-
-				// Draw box border
-				$pdf->Rect($listeColisX, $tab_top, $listeColisWidth, $listeColisHeight, 'D');
-
-				// Add header
-				$pdf->SetFont('', 'B', $default_font_size - 1);
-				$pdf->SetXY($listeColisX, $tab_top + 1);
-				$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
-				$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
-
-				// Display content (HTML decoded)
-				$pdf->SetFont('', '', $default_font_size - 2);
-				$listeColisContent = '';
-				if (!empty($object->array_options['options_listecolis_fp'])) {
-					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					// Strip HTML tags and decode entities
-					$listeColisContent = strip_tags($listeColisContent);
-					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);
-				}
-				$pdf->SetXY($listeColisX + 1, $tab_top + 6);
-				$pdf->MultiCell($listeColisWidth - 2, 3, $listeColisContent, 0, 'L');
 
 				// Display custom info: Number of packages and total weight
 				$pdf->SetFont('', 'B', $default_font_size);
@@ -1324,9 +1298,10 @@ class pdf_einstein extends ModelePDFCommandes
 	 *   @param		int			$hidebottom		Hide bottom bar of array
 	 *   @param		string		$currency		Currency code
 	 *   @param		Translate	$outputlangsbis	Langs object bis
+	 *   @param		Commande	$object			Object order (for Liste Colis extrafield)
 	 *   @return	void
 	 */
-	protected function _tableau(&$pdf, $tab_top, $tab_height, $nexY, $outputlangs, $hidetop = 0, $hidebottom = 0, $currency = '', $outputlangsbis = null)
+	protected function _tableau(&$pdf, $tab_top, $tab_height, $nexY, $outputlangs, $hidetop = 0, $hidebottom = 0, $currency = '', $outputlangsbis = null, $object = null)
 	{
 		global $conf;
 
@@ -1356,6 +1331,36 @@ class pdf_einstein extends ModelePDFCommandes
 
 			$pdf->SetXY($this->posxqty, $tab_top + 1);
 			$pdf->MultiCell($this->posxlistecolis - $this->posxqty - 2, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+		}
+
+		// Draw separate Liste Colis box on the right side (on every page)
+		if (!empty($object)) {
+			$listeColisX = $this->posxlistecolis;
+			$listeColisWidth = $this->page_largeur - $this->marge_droite - $listeColisX;
+
+			// Draw box border
+			$pdf->Rect($listeColisX, $tab_top, $listeColisWidth, $tab_height, 'D');
+
+			// Add header
+			$pdf->SetFont('', 'B', $default_font_size - 1);
+			$pdf->SetXY($listeColisX, $tab_top + 1);
+			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
+			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
+
+			// Display content (HTML decoded) - only on first page
+			if (empty($hidetop)) {
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$listeColisContent = '';
+				if (!empty($object->array_options['options_listecolis_fp'])) {
+					$listeColisContent = $object->array_options['options_listecolis_fp'];
+					// Strip HTML tags and decode entities
+					$listeColisContent = strip_tags($listeColisContent);
+					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);
+				}
+				$pdf->SetXY($listeColisX + 1, $tab_top + 6);
+				$pdf->MultiCell($listeColisWidth - 2, 3, $listeColisContent, 0, 'L');
+			}
 		}
 	}
 

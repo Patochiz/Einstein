@@ -127,10 +127,10 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		// Adjusted positions for wider Designation column
-		$this->posxtva = 145;   // Moved right to expand Designation
+		// Simplified layout: only Designation and Quantity columns
+		$this->posxtva = 145;   // Not used anymore but kept for compatibility
 		$this->posxup = 118;    // Not used anymore but kept for compatibility
-		$this->posxqty = 165;   // Moved right, TVA column is ~20mm wide
+		$this->posxqty = 170;   // Moved far right for maximum Designation space (~159mm wide)
 		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
@@ -452,12 +452,7 @@ class pdf_einstein extends ModelePDFCommandes
 
 					$pdf->SetFont('', '', $default_font_size - 1); // We reposition the default font
 
-					// VAT Rate
-					if (!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') && !getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
-						$vat_rate = pdf_getlinevatrate($object, $i, $outputlangs, $hidedetails);
-						$pdf->SetXY($this->posxtva - 5, $curY);
-						$pdf->MultiCell($this->posxqty - $this->posxtva + 4, 3, $vat_rate, 0, 'R');
-					}
+					// VAT Rate - removed, not needed for order preparation document
 
 					// Quantity with unit
 					$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
@@ -1201,13 +1196,7 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->MultiCell(108, 2, $outputlangs->transnoentities("Designation"), '', 'L');
 		}
 
-		if (!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') && !getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
-			$pdf->line($this->posxtva - 1, $tab_top, $this->posxtva - 1, $tab_top + $tab_height);
-			if (empty($hidetop)) {
-				$pdf->SetXY($this->posxtva - 3, $tab_top + 1);
-				$pdf->MultiCell($this->posxup - $this->posxtva + 3, 2, $outputlangs->transnoentities("VAT"), '', 'C');
-			}
-		}
+		// VAT column removed - not needed for order preparation document
 
 		$pdf->line($this->posxqty - 1, $tab_top, $this->posxqty - 1, $tab_top + $tab_height);
 		if (empty($hidetop)) {

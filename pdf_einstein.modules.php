@@ -127,11 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		// Simplified layout with listecolis_fp column: Designation + Qty (wider) + Liste Colis (narrower)
+		// Main table: Designation + Qty | Separate box on right: Liste Colis
 		$this->posxtva = 145;   // Not used anymore but kept for compatibility
 		$this->posxup = 118;    // Not used anymore but kept for compatibility
-		$this->posxqty = 105;   // Qty column position (Designation spans from posxdesc to posxqty)
-		$this->posxlistecolis = 160; // Start of listecolis_fp column (Qty gets more space)
+		$this->posxqty = 130;   // Qty column position (wider main table)
+		$this->posxlistecolis = 165; // Start of separate Liste Colis box (right side)
 		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
@@ -529,17 +529,7 @@ class pdf_einstein extends ModelePDFCommandes
 							$qty_with_unit .= ' '.$unit;
 						}
 						$pdf->SetXY($this->posxqty, $curY);
-						$pdf->MultiCell($this->posxlistecolis - $this->posxqty, 4, $qty_with_unit, 0, 'C');
-					}
-
-					// Liste Colis column (object extrafield, not line extrafield) - skip for title service ID 361
-					if (!$isTitleService) {
-						$listecolis = '';
-						if (!empty($object->array_options['options_listecolis_fp'])) {
-							$listecolis = $object->array_options['options_listecolis_fp'];
-						}
-						$pdf->SetXY($this->posxlistecolis, $curY);
-						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxlistecolis, 4, $listecolis, 0, 'C');
+						$pdf->MultiCell($this->posxlistecolis - $this->posxqty - 2, 4, $qty_with_unit, 0, 'C');
 					}
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
@@ -664,6 +654,33 @@ class pdf_einstein extends ModelePDFCommandes
 					$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 1, 0, $object->multicurrency_code);
 				}
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
+
+				// Draw separate Liste Colis box on the right side
+				$listeColisX = $this->posxlistecolis;
+				$listeColisWidth = $this->page_largeur - $this->marge_droite - $listeColisX;
+				$listeColisHeight = $bottomlasttab - $tab_top;
+
+				// Draw box border
+				$pdf->Rect($listeColisX, $tab_top, $listeColisWidth, $listeColisHeight, 'D');
+
+				// Add header
+				$pdf->SetFont('', 'B', $default_font_size - 1);
+				$pdf->SetXY($listeColisX, $tab_top + 1);
+				$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
+				$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
+
+				// Display content (HTML decoded)
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$listeColisContent = '';
+				if (!empty($object->array_options['options_listecolis_fp'])) {
+					$listeColisContent = $object->array_options['options_listecolis_fp'];
+					// Strip HTML tags and decode entities
+					$listeColisContent = strip_tags($listeColisContent);
+					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);
+				}
+				$pdf->SetXY($listeColisX + 1, $tab_top + 6);
+				$pdf->MultiCell($listeColisWidth - 2, 3, $listeColisContent, 0, 'L');
 
 				// Display custom info: Number of packages and total weight
 				$pdf->SetFont('', 'B', $default_font_size);
@@ -1327,28 +1344,18 @@ class pdf_einstein extends ModelePDFCommandes
 		$pdf->SetDrawColor(128, 128, 128);
 		$pdf->SetFont('', '', $default_font_size - 1);
 
-		// Output Rect
-		$this->printRect($pdf, $this->marge_gauche, $tab_top, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $tab_height, $hidetop, $hidebottom); // Rect takes a length in 3rd parameter and 4th parameter
+		// Output Rect for main table only (Designation + Qty)
+		$mainTableWidth = $this->posxlistecolis - $this->marge_gauche - 2;
+		$this->printRect($pdf, $this->marge_gauche, $tab_top, $mainTableWidth, $tab_height, $hidetop, $hidebottom);
 
 		if (empty($hidetop)) {
-			$pdf->line($this->marge_gauche, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5); // line takes a position y in 2nd parameter and 4th parameter
+			$pdf->line($this->marge_gauche, $tab_top + 5, $this->posxlistecolis - 2, $tab_top + 5);
 
 			$pdf->SetXY($this->posxdesc - 1, $tab_top + 1);
 			$pdf->MultiCell($this->posxqty - $this->posxdesc, 2, $outputlangs->transnoentities("Designation"), '', 'L');
-		}
-
-		// VAT column removed - not needed for order preparation document
-
-		// Vertical line to separate Qty and Liste Colis (no line between Designation and Qty)
-		if (empty($hidetop)) {
-			// Vertical line between Qty and listecolis_fp
-			$pdf->line($this->posxlistecolis, $tab_top, $this->posxlistecolis, $tab_top + $tab_height);
 
 			$pdf->SetXY($this->posxqty, $tab_top + 1);
-			$pdf->MultiCell($this->posxlistecolis - $this->posxqty, 2, $outputlangs->transnoentities("Qty"), '', 'C');
-
-			$pdf->SetXY($this->posxlistecolis, $tab_top + 1);
-			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxlistecolis, 2, "Liste Colis", '', 'C');
+			$pdf->MultiCell($this->posxlistecolis - $this->posxqty - 2, 2, $outputlangs->transnoentities("Qty"), '', 'C');
 		}
 	}
 

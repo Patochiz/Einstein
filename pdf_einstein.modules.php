@@ -127,11 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		// Simplified layout with listecolis_fp column: Main table (60%) + listecolis_fp (40%)
+		// Simplified layout with listecolis_fp column: Designation + Qty (wider) + Liste Colis (narrower)
 		$this->posxtva = 145;   // Not used anymore but kept for compatibility
 		$this->posxup = 118;    // Not used anymore but kept for compatibility
 		$this->posxqty = 105;   // Qty column position (Designation spans from posxdesc to posxqty)
-		$this->posxlistecolis = 125; // Start of listecolis_fp column (after main table)
+		$this->posxlistecolis = 160; // Start of listecolis_fp column (Qty gets more space)
 		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
@@ -532,11 +532,11 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->MultiCell($this->posxlistecolis - $this->posxqty, 4, $qty_with_unit, 0, 'C');
 					}
 
-					// Liste Colis column (skip for title service ID 361)
+					// Liste Colis column (object extrafield, not line extrafield) - skip for title service ID 361
 					if (!$isTitleService) {
 						$listecolis = '';
-						if (!empty($object->lines[$i]->array_options['options_listecolis_fp'])) {
-							$listecolis = $object->lines[$i]->array_options['options_listecolis_fp'];
+						if (!empty($object->array_options['options_listecolis_fp'])) {
+							$listecolis = $object->array_options['options_listecolis_fp'];
 						}
 						$pdf->SetXY($this->posxlistecolis, $curY);
 						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxlistecolis, 4, $listecolis, 0, 'C');
@@ -1339,10 +1339,8 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// VAT column removed - not needed for order preparation document
 
-		// Vertical lines to separate columns
+		// Vertical line to separate Qty and Liste Colis (no line between Designation and Qty)
 		if (empty($hidetop)) {
-			// Vertical line between Designation and Qty
-			$pdf->line($this->posxqty, $tab_top, $this->posxqty, $tab_top + $tab_height);
 			// Vertical line between Qty and listecolis_fp
 			$pdf->line($this->posxlistecolis, $tab_top, $this->posxlistecolis, $tab_top + $tab_height);
 

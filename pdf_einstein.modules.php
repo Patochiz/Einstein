@@ -127,17 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-			$this->posxtva = 101;
-			$this->posxup = 118;
-			$this->posxqty = 135;
-			$this->posxunit = 151;
-		} else {
-			$this->posxtva = 106;
-			$this->posxup = 122;
-			$this->posxqty = 145;
-			$this->posxunit = 162;
-		}
+		// Adjusted positions for wider Designation column
+		$this->posxtva = 145;   // Moved right to expand Designation
+		$this->posxup = 118;    // Not used anymore but kept for compatibility
+		$this->posxqty = 165;   // Moved right, TVA column is ~20mm wide
+		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
 		if (getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') || getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
@@ -477,21 +471,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$qty_with_unit .= ' '.$unit;
 					}
 					$pdf->SetXY($this->posxqty, $curY);
-					if ($this->atleastonediscount) {
-						$pdf->MultiCell($this->posxdiscount - $this->posxqty - 0.8, 4, $qty_with_unit, 0, 'R');
-					} else {
-						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
-					}
-
-					// Discount on line
-					if ($this->atleastonediscount) {
-						$pdf->SetXY($this->posxdiscount, $curY);
-						if ($object->lines[$i]->remise_percent) {
-							$pdf->SetXY($this->posxdiscount - 2, $curY);
-							$remise_percent = pdf_getlineremisepercent($object, $i, $outputlangs, $hidedetails);
-							$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxdiscount + 2, 3, $remise_percent, 0, 'R');
-						}
-					}
+					$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
 					if (isModEnabled("multicurrency") && $object->multicurrency_tx != 1) {
@@ -1232,19 +1212,7 @@ class pdf_einstein extends ModelePDFCommandes
 		$pdf->line($this->posxqty - 1, $tab_top, $this->posxqty - 1, $tab_top + $tab_height);
 		if (empty($hidetop)) {
 			$pdf->SetXY($this->posxqty - 1, $tab_top + 1);
-			if ($this->atleastonediscount) {
-				$pdf->MultiCell($this->posxdiscount - $this->posxqty - 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
-			} else {
-				$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
-			}
-		}
-
-		if ($this->atleastonediscount) {
-			$pdf->line($this->posxdiscount - 1, $tab_top, $this->posxdiscount - 1, $tab_top + $tab_height);
-			if (empty($hidetop)) {
-				$pdf->SetXY($this->posxdiscount - 1, $tab_top + 1);
-				$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxdiscount + 1, 2, $outputlangs->transnoentities("ReductionShort"), '', 'C');
-			}
+			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
 		}
 	}
 

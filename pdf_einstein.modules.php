@@ -423,12 +423,17 @@ class pdf_einstein extends ModelePDFCommandes
 
 					$pdf->startTransaction();
 					if ($isTitleService) {
-						// Special handling for title service: display description on full width in BOLD
+						// Special handling for title service: display ref_chantier extrafield on full width in BOLD
 						$pdf->SetFont('', 'B', $default_font_size);
 						$fullWidth = $this->posxqty - $this->posxdesc;
 						$pdf->SetXY($curX, $curY);
+						// Use ref_chantier extrafield instead of description
+						$titleText = '';
+						if (!empty($object->lines[$i]->array_options['options_ref_chantier'])) {
+							$titleText = $object->lines[$i]->array_options['options_ref_chantier'];
+						}
 						// Decode HTML entities and convert for output
-						$titleText = html_entity_decode($object->lines[$i]->desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+						$titleText = html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 						$titleText = $outputlangs->convToOutputCharset($titleText);
 						$pdf->MultiCell($fullWidth, 3, $titleText, 0, 'L');
 					} else {
@@ -444,8 +449,13 @@ class pdf_einstein extends ModelePDFCommandes
 							$pdf->SetFont('', 'B', $default_font_size);
 							$fullWidth = $this->posxqty - $this->posxdesc;
 							$pdf->SetXY($curX, $curY);
+							// Use ref_chantier extrafield instead of description
+							$titleText = '';
+							if (!empty($object->lines[$i]->array_options['options_ref_chantier'])) {
+								$titleText = $object->lines[$i]->array_options['options_ref_chantier'];
+							}
 							// Decode HTML entities and convert for output
-							$titleText = html_entity_decode($object->lines[$i]->desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+							$titleText = html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 							$titleText = $outputlangs->convToOutputCharset($titleText);
 							$pdf->MultiCell($fullWidth, 4, $titleText, 0, 'L');
 						} else {

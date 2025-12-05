@@ -1229,9 +1229,9 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->MultiCell($this->posxdiscount - $this->posxqty - 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
 		}
 
-		$pdf->line($this->posxdiscount - 1, $tab_top, $this->posxdiscount - 1, $tab_top + $tab_height);
-		if (empty($hidetop)) {
-			if ($this->atleastonediscount) {
+		if ($this->atleastonediscount) {
+			$pdf->line($this->posxdiscount - 1, $tab_top, $this->posxdiscount - 1, $tab_top + $tab_height);
+			if (empty($hidetop)) {
 				$pdf->SetXY($this->posxdiscount - 1, $tab_top + 1);
 				$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxdiscount + 1, 2, $outputlangs->transnoentities("ReductionShort"), '', 'C');
 			}

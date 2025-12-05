@@ -685,6 +685,69 @@ class pdf_einstein extends ModelePDFCommandes
 
 				$posy = $bottomlasttab + 10;
 
+				// Manual fill-in form for operators
+				$pdf->SetFont('', 'B', $default_font_size);
+				$pdf->SetXY($this->marge_gauche, $posy);
+				$pdf->MultiCell(100, 5, 'COLISAGE FINAL :', 0, 'L', 0);
+
+				$posy += 6;
+				$leftColWidth = 120;
+				$rightColWidth = 70;
+				$lineHeight = 6;
+
+				// Draw left section border
+				$pdf->SetLineWidth(0.5);
+				$pdf->Rect($this->marge_gauche, $posy, $leftColWidth, $lineHeight * 4, 'D');
+
+				// Draw horizontal lines in left section
+				$pdf->Line($this->marge_gauche, $posy + $lineHeight, $this->marge_gauche + $leftColWidth, $posy + $lineHeight);
+				$pdf->Line($this->marge_gauche, $posy + $lineHeight * 2, $this->marge_gauche + $leftColWidth, $posy + $lineHeight * 2);
+				$pdf->Line($this->marge_gauche, $posy + $lineHeight * 3, $this->marge_gauche + $leftColWidth, $posy + $lineHeight * 3);
+
+				// Draw vertical line to separate left and right sections
+				$pdf->Line($this->marge_gauche + $leftColWidth - 35, $posy, $this->marge_gauche + $leftColWidth - 35, $posy + $lineHeight * 4);
+
+				// Fill left section content
+				$pdf->SetFont('', '', $default_font_size - 1);
+				$pdf->SetXY($this->marge_gauche + 2, $posy + 1);
+				$pdf->Cell(50, $lineHeight - 2, '___PALETTE(S) SOIT', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight + 1);
+				$pdf->Cell(50, $lineHeight - 2, '___FARDEAU(X) SOIT', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight * 2 + 1);
+				$pdf->Cell(50, $lineHeight - 2, '___COLIS VRAC', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight * 2 + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				$pdf->SetFont('', 'B', $default_font_size - 1);
+				$pdf->SetFillColor(0, 0, 0);
+				$pdf->Rect($this->marge_gauche, $posy + $lineHeight * 3, $leftColWidth, $lineHeight, 'F');
+				$pdf->SetTextColor(255, 255, 255);
+				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight * 3 + 1);
+				$pdf->Cell(50, $lineHeight - 2, 'NBR TOTAL DE COLIS :', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight * 3 + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+				$pdf->SetTextColor(0, 0, 0);
+
+				// Draw right section
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$rightX = $this->marge_gauche + $leftColWidth + 2;
+				$pdf->SetXY($rightX, $posy - 6);
+				$pdf->MultiCell($rightColWidth, 4, "Vérification Fiche de production par:", 0, 'L', 0);
+
+				$pdf->SetXY($rightX, $posy + 4);
+				$pdf->MultiCell($rightColWidth, 4, "Pointage final et date de retour par:", 0, 'L', 0);
+
+				$pdf->SetXY($rightX, $posy + 14);
+				$pdf->MultiCell($rightColWidth, 4, "ID BOBINE(S) UTILISÉE(S) :", 0, 'L', 0);
+
+				$posy += $lineHeight * 4 + 2;
+
 				// Affiche zone versements
 				/*
 				if ($deja_regle)

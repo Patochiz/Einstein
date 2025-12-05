@@ -127,11 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		// Main table: Designation + Qty | Separate box on right: Liste Colis
+		// Main table (60%): Designation + Qty | Liste Colis box (40%): on right side
 		$this->posxtva = 145;   // Not used anymore but kept for compatibility
 		$this->posxup = 118;    // Not used anymore but kept for compatibility
-		$this->posxqty = 130;   // Qty column position (wider main table)
-		$this->posxlistecolis = 165; // Start of separate Liste Colis box (right side)
+		$this->posxqty = 105;   // Qty column position
+		$this->posxlistecolis = 127; // Start of Liste Colis box (60/40 split)
 		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;

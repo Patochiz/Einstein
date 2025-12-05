@@ -654,11 +654,36 @@ class pdf_einstein extends ModelePDFCommandes
 				}
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
 
-				// Display infos area
-				$posy = $this->_tableau_info($pdf, $object, $bottomlasttab, $outputlangs);
+				// Display custom info: Number of packages and total weight
+				$pdf->SetFont('', 'B', $default_font_size);
+				$pdf->SetXY($this->marge_gauche, $bottomlasttab + 2);
 
-				// Display total zone
-				$posy = $this->_tableau_tot($pdf, $object, $deja_regle, $bottomlasttab, $outputlangs);
+				$nbColis = '';
+				if (!empty($object->array_options['options_total_de_colis'])) {
+					$nbColis = $object->array_options['options_total_de_colis'] . ' Colis';
+				}
+
+				$poidsTotal = '';
+				if (!empty($object->array_options['options_poids_total'])) {
+					$poidsTotal = $object->array_options['options_poids_total'] . ' Kg';
+				}
+
+				$infoText = '';
+				if (!empty($nbColis)) {
+					$infoText .= $nbColis;
+				}
+				if (!empty($nbColis) && !empty($poidsTotal)) {
+					$infoText .= ' | ';
+				}
+				if (!empty($poidsTotal)) {
+					$infoText .= $poidsTotal;
+				}
+
+				if (!empty($infoText)) {
+					$pdf->MultiCell(100, 4, $infoText, 0, 'L', 0);
+				}
+
+				$posy = $bottomlasttab + 10;
 
 				// Affiche zone versements
 				/*

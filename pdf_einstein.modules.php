@@ -127,17 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-			$this->posxtva = 101;
-			$this->posxup = 118;
-			$this->posxqty = 135;
-			$this->posxunit = 151;
-		} else {
-			$this->posxtva = 106;
-			$this->posxup = 122;
-			$this->posxqty = 145;
-			$this->posxunit = 162;
-		}
+		// Simplified layout: only Designation and Quantity columns
+		$this->posxtva = 145;   // Not used anymore but kept for compatibility
+		$this->posxup = 118;    // Not used anymore but kept for compatibility
+		$this->posxqty = 170;   // Moved far right for maximum Designation space (~159mm wide)
+		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
 		if (getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') || getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
@@ -224,7 +218,7 @@ class pdf_einstein extends ModelePDFCommandes
 
 				$objectref = dol_sanitizeFileName($object->ref);
 				$dir = $conf->commande->multidir_output[$object->entity]."/".$objectref;
-				$file = $dir."/".$objectref.$suffix.".pdf";
+				$file = $dir."/".$objectref.$suffix."_FP.pdf";
 			}
 
 			if (!file_exists($dir)) {
@@ -357,7 +351,13 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 				}
 				// Extrafields in note
-				$extranote = $this->getExtrafieldsInHtml($object, $outputlangs);
+				// Extrafields in note - visibilité 5 uniquement
+				$params = array(
+					'printableEnable' => array(5),          // Affiche ceux marqués 5
+					'printableEnableNotEmpty' => array()    // Désactive les visibilités 2
+				);
+				$extranote = $this->getExtrafieldsInHtml($object, $outputlangs, $params);
+				
 				if (!empty($extranote)) {
 					$notetoshow = dol_concatdesc($notetoshow, $extranote);
 				}
@@ -396,20 +396,81 @@ class pdf_einstein extends ModelePDFCommandes
 					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
 					$pageposbefore = $pdf->getPage();
 
+					// Check if this is ECO_TAXE service (ID 288) - don't display it in the PDF
+					$isEcoTaxe = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 288);
+
+					// Check if this is the special "Libelle_Cde" service (ID 361) used as title
+					$isTitleService = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
 					// Description of product line
 					$curX = $this->posxdesc - 1;
 
 					$showpricebeforepagebreak = 1;
 
+					// Skip display for ECO_TAXE but continue loop for proper calculations
+					if ($isEcoTaxe) {
+						// For ECO_TAXE, don't display anything but set nexY to curY (no space added)
+						$nexY = $curY;
+						continue;
+					}
+
+					// Modify description for products to include detail extrafield in 2 columns
+					if (!$isTitleService) {
+						$isProduct = (isset($object->lines[$i]->product_type) && $object->lines[$i]->product_type == 0);
+						$originalDesc = $object->lines[$i]->desc;
+						$detail = '';
+						if (!empty($object->lines[$i]->array_options['options_detail'])) {
+							$detail = $object->lines[$i]->array_options['options_detail'];
+						}
+						// Create a 2-column table with description and detail (only for products)
+						if ($isProduct && (!empty($originalDesc) || !empty($detail))) {
+							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $originalDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $detail . '</td>';
+							$object->lines[$i]->desc .= '</tr></table>';
+						}
+					}
+
 					$pdf->startTransaction();
-					pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxtva - $curX, 3, $curX, $curY, $hideref, $hidedesc);
+					if ($isTitleService) {
+						// Special handling for title service: display ref_chantier extrafield on full width in BOLD
+						$pdf->SetFont('', 'B', $default_font_size);
+						$fullWidth = $this->posxqty - $this->posxdesc;
+						$pdf->SetXY($curX, $curY);
+						// Use ref_chantier extrafield instead of description
+						$titleText = '';
+						if (!empty($object->lines[$i]->array_options['options_ref_chantier'])) {
+							$titleText = $object->lines[$i]->array_options['options_ref_chantier'];
+						}
+						// Decode HTML entities and convert for output
+						$titleText = html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+						$titleText = $outputlangs->convToOutputCharset($titleText);
+						$pdf->MultiCell($fullWidth, 3, $titleText, 0, 'L');
+					} else {
+						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 3, $curX, $curY, $hideref, $hidedesc);
+					}
 					$pageposafter = $pdf->getPage();
 					if ($pageposafter > $pageposbefore) {	// There is a pagebreak
 						$pdf->rollbackTransaction(true);
 						$pageposafter = $pageposbefore;
 						//print $pageposafter.'-'.$pageposbefore;exit;
 						$pdf->setPageOrientation('', 1, $heightforfooter); // The only function to edit the bottom margin of current page to set it.
-						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxtva - $curX, 4, $curX, $curY, $hideref, $hidedesc);
+						if ($isTitleService) {
+							$pdf->SetFont('', 'B', $default_font_size);
+							$fullWidth = $this->posxqty - $this->posxdesc;
+							$pdf->SetXY($curX, $curY);
+							// Use ref_chantier extrafield instead of description
+							$titleText = '';
+							if (!empty($object->lines[$i]->array_options['options_ref_chantier'])) {
+								$titleText = $object->lines[$i]->array_options['options_ref_chantier'];
+							}
+							// Decode HTML entities and convert for output
+							$titleText = html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+							$titleText = $outputlangs->convToOutputCharset($titleText);
+							$pdf->MultiCell($fullWidth, 4, $titleText, 0, 'L');
+						} else {
+							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 4, $curX, $curY, $hideref, $hidedesc);
+						}
 						$pageposafter = $pdf->getPage();
 						$posyafter = $pdf->GetY();
 						if ($posyafter > ($this->page_hauteur - ($heightforfooter + $heightforfreetext + $heightforinfotot))) {	// There is no space left for total+free text
@@ -452,42 +513,23 @@ class pdf_einstein extends ModelePDFCommandes
 
 					$pdf->SetFont('', '', $default_font_size - 1); // We reposition the default font
 
-					// VAT Rate
-					if (!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') && !getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
-						$vat_rate = pdf_getlinevatrate($object, $i, $outputlangs, $hidedetails);
-						$pdf->SetXY($this->posxtva - 5, $curY);
-						$pdf->MultiCell($this->posxup - $this->posxtva + 4, 3, $vat_rate, 0, 'R');
+					// VAT Rate - removed, not needed for order preparation document
+
+					// Quantity with unit (skip for title service ID 361)
+					if (!$isTitleService) {
+						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
+						$unit = '';
+						if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
+							$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
+						}
+						// Combine quantity and unit
+						$qty_with_unit = $qty;
+						if (!empty($unit)) {
+							$qty_with_unit .= ' '.$unit;
+						}
+						$pdf->SetXY($this->posxqty, $curY);
+						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
 					}
-
-					// Unit price before discount
-					$up_excl_tax = pdf_getlineupexcltax($object, $i, $outputlangs, $hidedetails);
-					$pdf->SetXY($this->posxup, $curY);
-					$pdf->MultiCell($this->posxqty - $this->posxup - 0.8, 3, $up_excl_tax, 0, 'R', 0);
-
-					// Quantity
-					$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
-					$pdf->SetXY($this->posxqty, $curY);
-					$pdf->MultiCell($this->posxunit - $this->posxqty - 0.8, 4, $qty, 0, 'R'); // Enough for 6 chars
-
-					// Unit
-					if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-						$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
-						$pdf->SetXY($this->posxunit, $curY);
-						$pdf->MultiCell($this->posxdiscount - $this->posxunit - 0.8, 4, $unit, 0, 'L');
-					}
-
-					// Discount on line
-					$pdf->SetXY($this->posxdiscount, $curY);
-					if ($object->lines[$i]->remise_percent) {
-						$pdf->SetXY($this->posxdiscount - 2, $curY);
-						$remise_percent = pdf_getlineremisepercent($object, $i, $outputlangs, $hidedetails);
-						$pdf->MultiCell($this->postotalht - $this->posxdiscount + 2, 3, $remise_percent, 0, 'R');
-					}
-
-					// Total HT line
-					$total_excl_tax = pdf_getlinetotalexcltax($object, $i, $outputlangs, $hidedetails);
-					$pdf->SetXY($this->postotalht, $curY);
-					$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->postotalht, 3, $total_excl_tax, 0, 'R', 0);
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
 					if (isModEnabled("multicurrency") && $object->multicurrency_tx != 1) {
@@ -612,11 +654,95 @@ class pdf_einstein extends ModelePDFCommandes
 				}
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
 
-				// Display infos area
-				$posy = $this->_tableau_info($pdf, $object, $bottomlasttab, $outputlangs);
+				// Display custom info: Number of packages and total weight
+				$pdf->SetFont('', 'B', $default_font_size);
+				$pdf->SetXY($this->marge_gauche, $bottomlasttab + 2);
 
-				// Display total zone
-				$posy = $this->_tableau_tot($pdf, $object, $deja_regle, $bottomlasttab, $outputlangs);
+				$nbColis = '';
+				if (!empty($object->array_options['options_total_de_colis'])) {
+					$nbColis = $object->array_options['options_total_de_colis'] . ' Colis';
+				}
+
+				$poidsTotal = '';
+				if (!empty($object->array_options['options_poids_total'])) {
+					$poidsTotal = $object->array_options['options_poids_total'] . ' Kg';
+				}
+
+				$infoText = '';
+				if (!empty($nbColis)) {
+					$infoText .= $nbColis;
+				}
+				if (!empty($nbColis) && !empty($poidsTotal)) {
+					$infoText .= ' | ';
+				}
+				if (!empty($poidsTotal)) {
+					$infoText .= $poidsTotal;
+				}
+
+				if (!empty($infoText)) {
+					$pdf->MultiCell(100, 4, $infoText, 0, 'L', 0);
+				}
+
+				$posy = $bottomlasttab + 10;
+
+				// Manual fill-in form for operators
+				$pdf->SetFont('', 'B', $default_font_size);
+				$pdf->SetXY($this->marge_gauche, $posy);
+				$pdf->MultiCell(100, 5, 'COLISAGE FINAL :', 0, 'L', 0);
+
+				$posy += 6;
+				$leftColWidth = 120;
+				$rightColWidth = 70;
+				$lineHeight = 6;
+
+				// Draw left section border
+				$pdf->SetLineWidth(0.5);
+				$pdf->Rect($this->marge_gauche, $posy, $leftColWidth, $lineHeight * 4, 'D');
+
+				// Draw horizontal lines in left section
+				$pdf->Line($this->marge_gauche, $posy + $lineHeight, $this->marge_gauche + $leftColWidth, $posy + $lineHeight);
+				$pdf->Line($this->marge_gauche, $posy + $lineHeight * 2, $this->marge_gauche + $leftColWidth, $posy + $lineHeight * 2);
+				$pdf->Line($this->marge_gauche, $posy + $lineHeight * 3, $this->marge_gauche + $leftColWidth, $posy + $lineHeight * 3);
+
+				// Draw vertical line to separate left and right sections
+				$pdf->Line($this->marge_gauche + $leftColWidth - 35, $posy, $this->marge_gauche + $leftColWidth - 35, $posy + $lineHeight * 4);
+
+				// Fill left section content
+				$pdf->SetFont('', '', $default_font_size - 1);
+				$pdf->SetXY($this->marge_gauche + 2, $posy + 1);
+				$pdf->Cell(50, $lineHeight - 2, '___PALETTE(S) SOIT', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight + 1);
+				$pdf->Cell(50, $lineHeight - 2, '___FARDEAU(X) SOIT', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight * 2 + 1);
+				$pdf->Cell(50, $lineHeight - 2, '___COLIS VRAC', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight * 2 + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				$pdf->SetFont('', 'B', $default_font_size - 1);
+				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight * 3 + 1);
+				$pdf->Cell(50, $lineHeight - 2, 'NBR TOTAL DE COLIS :', 0, 0, 'L');
+				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight * 3 + 1);
+				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
+
+				// Draw right section
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$rightX = $this->marge_gauche + $leftColWidth + 2;
+				$pdf->SetXY($rightX, $posy - 6);
+				$pdf->MultiCell($rightColWidth, 4, "Vérification Fiche de production par:", 0, 'L', 0);
+
+				$pdf->SetXY($rightX, $posy + 4);
+				$pdf->MultiCell($rightColWidth, 4, "Pointage final et date de retour par:", 0, 'L', 0);
+
+				$pdf->SetXY($rightX, $posy + 14);
+				$pdf->MultiCell($rightColWidth, 4, "ID BOBINE(S) UTILISÉE(S) :", 0, 'L', 0);
+
+				$posy += $lineHeight * 4 + 2;
 
 				// Affiche zone versements
 				/*
@@ -1185,24 +1311,7 @@ class pdf_einstein extends ModelePDFCommandes
 		$currency = !empty($currency) ? $currency : $conf->currency;
 		$default_font_size = pdf_getPDFFontSize($outputlangs);
 
-		// Amount in (at tab_top - 1)
-		$pdf->SetTextColor(0, 0, 0);
-		$pdf->SetFont('', '', $default_font_size - 2);
-
-		if (empty($hidetop)) {
-			$titre = $outputlangs->transnoentities("AmountInCurrency", $outputlangs->transnoentitiesnoconv("Currency".$currency));
-			if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
-				$titre .= ' - '.$outputlangsbis->transnoentities("AmountInCurrency", $outputlangsbis->transnoentitiesnoconv("Currency".$currency));
-			}
-
-			$pdf->SetXY($this->page_largeur - $this->marge_droite - ($pdf->GetStringWidth($titre) + 3), $tab_top - 4);
-			$pdf->MultiCell(($pdf->GetStringWidth($titre) + 3), 2, $titre);
-
-			//$conf->global->MAIN_PDF_TITLE_BACKGROUND_COLOR='230,230,230';
-			if (getDolGlobalString('MAIN_PDF_TITLE_BACKGROUND_COLOR')) {
-				$pdf->Rect($this->marge_gauche, $tab_top, $this->page_largeur - $this->marge_droite - $this->marge_gauche, 5, 'F', null, explode(',', getDolGlobalString('MAIN_PDF_TITLE_BACKGROUND_COLOR')));
-			}
-		}
+		// Amount in currency text removed - not needed for production sheet
 
 		$pdf->SetDrawColor(128, 128, 128);
 		$pdf->SetFont('', '', $default_font_size - 1);
@@ -1217,48 +1326,12 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->MultiCell(108, 2, $outputlangs->transnoentities("Designation"), '', 'L');
 		}
 
-		if (!getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT') && !getDolGlobalString('MAIN_GENERATE_DOCUMENTS_WITHOUT_VAT_COLUMN')) {
-			$pdf->line($this->posxtva - 1, $tab_top, $this->posxtva - 1, $tab_top + $tab_height);
-			if (empty($hidetop)) {
-				$pdf->SetXY($this->posxtva - 3, $tab_top + 1);
-				$pdf->MultiCell($this->posxup - $this->posxtva + 3, 2, $outputlangs->transnoentities("VAT"), '', 'C');
-			}
-		}
+		// VAT column removed - not needed for order preparation document
 
-		$pdf->line($this->posxup - 1, $tab_top, $this->posxup - 1, $tab_top + $tab_height);
-		if (empty($hidetop)) {
-			$pdf->SetXY($this->posxup - 1, $tab_top + 1);
-			$pdf->MultiCell($this->posxqty - $this->posxup - 1, 2, $outputlangs->transnoentities("PriceUHT"), '', 'C');
-		}
-
-		$pdf->line($this->posxqty - 1, $tab_top, $this->posxqty - 1, $tab_top + $tab_height);
+		// Vertical line removed - cleaner look for production sheet
 		if (empty($hidetop)) {
 			$pdf->SetXY($this->posxqty - 1, $tab_top + 1);
-			$pdf->MultiCell($this->posxunit - $this->posxqty - 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
-		}
-
-		if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-			$pdf->line($this->posxunit - 1, $tab_top, $this->posxunit - 1, $tab_top + $tab_height);
-			if (empty($hidetop)) {
-				$pdf->SetXY($this->posxunit - 1, $tab_top + 1);
-				$pdf->MultiCell($this->posxdiscount - $this->posxunit - 1, 2, $outputlangs->transnoentities("Unit"), '', 'C');
-			}
-		}
-
-		$pdf->line($this->posxdiscount - 1, $tab_top, $this->posxdiscount - 1, $tab_top + $tab_height);
-		if (empty($hidetop)) {
-			if ($this->atleastonediscount) {
-				$pdf->SetXY($this->posxdiscount - 1, $tab_top + 1);
-				$pdf->MultiCell($this->postotalht - $this->posxdiscount + 1, 2, $outputlangs->transnoentities("ReductionShort"), '', 'C');
-			}
-		}
-
-		if ($this->atleastonediscount) {
-			$pdf->line($this->postotalht, $tab_top, $this->postotalht, $tab_top + $tab_height);
-		}
-		if (empty($hidetop)) {
-			$pdf->SetXY($this->postotalht - 1, $tab_top + 1);
-			$pdf->MultiCell(30, 2, $outputlangs->transnoentities("TotalHTShort"), '', 'C');
+			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
 		}
 	}
 
@@ -1332,8 +1405,12 @@ class pdf_einstein extends ModelePDFCommandes
 		$pdf->SetFont('', 'B', $default_font_size + 3);
 		$pdf->SetXY($posx, $posy);
 		$pdf->SetTextColor(0, 0, 60);
-		$title = $outputlangs->transnoentities($titlekey);
+		$title = 'FICHE DE PRODUCTION';
 		$title .= ' '.$outputlangs->convToOutputCharset($object->ref);
+		// Add version from extrafield if available
+		if (!empty($object->array_options['options_version'])) {
+			$title .= ' V'.$object->array_options['options_version'];
+		}
 		if ($object->statut == $object::STATUS_DRAFT) {
 			$pdf->SetTextColor(128, 0, 0);
 			$title .= ' - '.$outputlangs->transnoentities("NotValidated");
@@ -1416,23 +1493,23 @@ class pdf_einstein extends ModelePDFCommandes
 		}
 
 		if ($showaddress) {
-			// Sender properties
+			// Sender properties - Now showing Customer (Thirdparty) information
 			$carac_emetteur = '';
-			// Add internal contact of object if defined
-			$arrayidcontact = $object->getIdContact('internal', 'SALESREPFOLL');
-			if (count($arrayidcontact) > 0) {
-				$object->fetch_user($arrayidcontact[0]);
-				$labelbeforecontactname = ($outputlangs->transnoentities("FromContactName") != 'FromContactName' ? $outputlangs->transnoentities("FromContactName") : $outputlangs->transnoentities("Name"));
-				$carac_emetteur .= ($carac_emetteur ? "\n" : '').$labelbeforecontactname." ".$outputlangs->convToOutputCharset($object->user->getFullName($outputlangs));
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') || getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT')) ? ' (' : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') && !empty($object->user->office_phone)) ? $object->user->office_phone : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') && getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT')) ? ', ' : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT') && !empty($object->user->email)) ? $object->user->email : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') || getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT')) ? ')' : '';
-				$carac_emetteur .= "\n";
-			}
 
-			$carac_emetteur .= pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
+			// Line 1: Client: [Customer Name]
+			$carac_emetteur .= 'Client : '.$outputlangs->convToOutputCharset($object->thirdparty->name)."\n";
+
+			// Line 2: Note privée: [Private note from thirdparty]
+			if (!empty($object->thirdparty->note_private)) {
+				// Convert HTML to plain text for PDF
+				$note_private = strip_tags($object->thirdparty->note_private);
+				// Remove extra line breaks and clean up
+				$note_private = preg_replace("/\n\n+/", "\n", $note_private);
+				$note_private = trim($note_private);
+				if (!empty($note_private)) {
+					$carac_emetteur .= 'Note privée : '.$outputlangs->convToOutputCharset($note_private);
+				}
+			}
 
 			// Show sender
 			$posy = 42 + $top_shift;
@@ -1447,30 +1524,22 @@ class pdf_einstein extends ModelePDFCommandes
 				$pdf->SetTextColor(0, 0, 0);
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->SetXY($posx, $posy - 5);
-				$pdf->MultiCell(80, 5, $outputlangs->transnoentities("BillFrom"), 0, $ltrdirection);
+				$pdf->MultiCell(80, 5, 'Client', 0, $ltrdirection);
 				$pdf->SetXY($posx, $posy);
 				$pdf->SetFillColor(230, 230, 230);
 				$pdf->MultiCell(82, $hautcadre, "", 0, 'R', 1);
 				$pdf->SetTextColor(0, 0, 60);
 			}
 
-			// Show sender name
-			if (!getDolGlobalString('MAIN_PDF_HIDE_SENDER_NAME')) {
-				$pdf->SetXY($posx + 2, $posy + 3);
-				$pdf->SetFont('', 'B', $default_font_size);
-				$pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($this->emetteur->name), 0, $ltrdirection);
-				$posy = $pdf->getY();
-			}
-
 			// Show sender information
-			$pdf->SetXY($posx + 2, $posy);
+			$pdf->SetXY($posx + 2, $posy + 3);
 			$pdf->SetFont('', '', $default_font_size - 1);
 			$pdf->MultiCell(80, 4, $carac_emetteur, 0, 'L');
 
 
-			// If CUSTOMER contact defined, we use it
+			// If SHIPPING contact defined, we use it
 			$usecontact = false;
-			$arrayidcontact = $object->getIdContact('external', 'CUSTOMER');
+			$arrayidcontact = $object->getIdContact('external', 'SHIPPING');
 			if (count($arrayidcontact) > 0) {
 				$usecontact = true;
 				$result = $object->fetch_contact($arrayidcontact[0]);
@@ -1487,6 +1556,13 @@ class pdf_einstein extends ModelePDFCommandes
 
 			$mode =  'target';
 			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), $usecontact, $mode, $object);
+
+			// Add phone number if shipping contact is defined
+			if ($usecontact && !empty($object->contact->phone_pro)) {
+				$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_pro;
+			} elseif ($usecontact && !empty($object->contact->phone_mobile)) {
+				$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_mobile;
+			}
 
 			// Show recipient
 			$widthrecbox = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 100;

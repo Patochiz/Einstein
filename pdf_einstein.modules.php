@@ -427,7 +427,10 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->SetFont('', 'B', $default_font_size);
 						$fullWidth = $this->posxqty - $this->posxdesc;
 						$pdf->SetXY($curX, $curY);
-						$pdf->MultiCell($fullWidth, 3, $object->lines[$i]->desc, 0, 'L');
+						// Decode HTML entities and convert for output
+						$titleText = html_entity_decode($object->lines[$i]->desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+						$titleText = $outputlangs->convToOutputCharset($titleText);
+						$pdf->MultiCell($fullWidth, 3, $titleText, 0, 'L');
 					} else {
 						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 3, $curX, $curY, $hideref, $hidedesc);
 					}
@@ -441,7 +444,10 @@ class pdf_einstein extends ModelePDFCommandes
 							$pdf->SetFont('', 'B', $default_font_size);
 							$fullWidth = $this->posxqty - $this->posxdesc;
 							$pdf->SetXY($curX, $curY);
-							$pdf->MultiCell($fullWidth, 4, $object->lines[$i]->desc, 0, 'L');
+							// Decode HTML entities and convert for output
+							$titleText = html_entity_decode($object->lines[$i]->desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+							$titleText = $outputlangs->convToOutputCharset($titleText);
+							$pdf->MultiCell($fullWidth, 4, $titleText, 0, 'L');
 						} else {
 							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 4, $curX, $curY, $hideref, $hidedesc);
 						}

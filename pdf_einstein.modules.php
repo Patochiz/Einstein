@@ -1468,9 +1468,9 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->MultiCell(80, 4, $carac_emetteur, 0, 'L');
 
 
-			// If CUSTOMER contact defined, we use it
+			// If SHIPPING contact defined, we use it
 			$usecontact = false;
-			$arrayidcontact = $object->getIdContact('external', 'CUSTOMER');
+			$arrayidcontact = $object->getIdContact('external', 'SHIPPING');
 			if (count($arrayidcontact) > 0) {
 				$usecontact = true;
 				$result = $object->fetch_contact($arrayidcontact[0]);
@@ -1487,6 +1487,13 @@ class pdf_einstein extends ModelePDFCommandes
 
 			$mode =  'target';
 			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), $usecontact, $mode, $object);
+
+			// Add phone number if shipping contact is defined
+			if ($usecontact && !empty($object->contact->phone_pro)) {
+				$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_pro;
+			} elseif ($usecontact && !empty($object->contact->phone_mobile)) {
+				$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_mobile;
+			}
 
 			// Show recipient
 			$widthrecbox = getDolGlobalString('MAIN_PDF_USE_ISO_LOCATION') ? 92 : 100;

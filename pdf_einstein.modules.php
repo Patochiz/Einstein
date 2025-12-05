@@ -396,10 +396,8 @@ class pdf_einstein extends ModelePDFCommandes
 					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
 					$pageposbefore = $pdf->getPage();
 
-					// Skip ECO_TAXE service (ID 288) - don't display it in the PDF
-					if (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 288) {
-						continue;
-					}
+					// Check if this is ECO_TAXE service (ID 288) - don't display it in the PDF
+					$isEcoTaxe = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 288);
 
 					// Check if this is the special "Libelle_Cde" service (ID 361) used as title
 					$isTitleService = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
@@ -408,6 +406,13 @@ class pdf_einstein extends ModelePDFCommandes
 					$curX = $this->posxdesc - 1;
 
 					$showpricebeforepagebreak = 1;
+
+					// Skip display for ECO_TAXE but continue loop for proper calculations
+					if ($isEcoTaxe) {
+						// For ECO_TAXE, don't display anything but set nexY to curY (no space added)
+						$nexY = $curY;
+						continue;
+					}
 
 					// Modify description for products to include detail extrafield in 2 columns
 					if (!$isTitleService) {

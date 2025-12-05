@@ -127,10 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		// Simplified layout: only Designation and Quantity columns
+		// Simplified layout with listecolis_fp column: Main table (60%) + listecolis_fp (40%)
 		$this->posxtva = 145;   // Not used anymore but kept for compatibility
 		$this->posxup = 118;    // Not used anymore but kept for compatibility
-		$this->posxqty = 170;   // Moved far right for maximum Designation space (~159mm wide)
+		$this->posxqty = 105;   // Qty column position (Designation spans from posxdesc to posxqty)
+		$this->posxlistecolis = 125; // Start of listecolis_fp column (after main table)
 		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
@@ -389,7 +390,7 @@ class pdf_einstein extends ModelePDFCommandes
 				// Loop on each lines
 				for ($i = 0; $i < $nblines; $i++) {
 					$curY = $nexY;
-					$pdf->SetFont('', '', $default_font_size - 1); // Into loop to work with multipage
+					$pdf->SetFont('', '', $default_font_size - 2); // Smaller font for table content
 					$pdf->SetTextColor(0, 0, 0);
 
 					$pdf->setTopMargin($tab_top_newpage);
@@ -433,9 +434,9 @@ class pdf_einstein extends ModelePDFCommandes
 
 					$pdf->startTransaction();
 					if ($isTitleService) {
-						// Special handling for title service: display ref_chantier extrafield on full width in BOLD
+						// Special handling for title service: display ref_chantier extrafield spanning Designation + Qty columns in BOLD
 						$pdf->SetFont('', 'B', $default_font_size);
-						$fullWidth = $this->posxqty - $this->posxdesc;
+						$fullWidth = $this->posxlistecolis - $this->posxdesc;
 						$pdf->SetXY($curX, $curY);
 						// Use ref_chantier extrafield instead of description
 						$titleText = '';
@@ -457,7 +458,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->setPageOrientation('', 1, $heightforfooter); // The only function to edit the bottom margin of current page to set it.
 						if ($isTitleService) {
 							$pdf->SetFont('', 'B', $default_font_size);
-							$fullWidth = $this->posxqty - $this->posxdesc;
+							$fullWidth = $this->posxlistecolis - $this->posxdesc;
 							$pdf->SetXY($curX, $curY);
 							// Use ref_chantier extrafield instead of description
 							$titleText = '';
@@ -511,7 +512,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$curY = $tab_top_newpage;
 					}
 
-					$pdf->SetFont('', '', $default_font_size - 1); // We reposition the default font
+					$pdf->SetFont('', '', $default_font_size - 2); // We reposition the default font
 
 					// VAT Rate - removed, not needed for order preparation document
 
@@ -528,7 +529,17 @@ class pdf_einstein extends ModelePDFCommandes
 							$qty_with_unit .= ' '.$unit;
 						}
 						$pdf->SetXY($this->posxqty, $curY);
-						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
+						$pdf->MultiCell($this->posxlistecolis - $this->posxqty, 4, $qty_with_unit, 0, 'C');
+					}
+
+					// Liste Colis column (skip for title service ID 361)
+					if (!$isTitleService) {
+						$listecolis = '';
+						if (!empty($object->lines[$i]->array_options['options_listecolis_fp'])) {
+							$listecolis = $object->lines[$i]->array_options['options_listecolis_fp'];
+						}
+						$pdf->SetXY($this->posxlistecolis, $curY);
+						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxlistecolis, 4, $listecolis, 0, 'C');
 					}
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
@@ -1323,15 +1334,23 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->line($this->marge_gauche, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5); // line takes a position y in 2nd parameter and 4th parameter
 
 			$pdf->SetXY($this->posxdesc - 1, $tab_top + 1);
-			$pdf->MultiCell(108, 2, $outputlangs->transnoentities("Designation"), '', 'L');
+			$pdf->MultiCell($this->posxqty - $this->posxdesc, 2, $outputlangs->transnoentities("Designation"), '', 'L');
 		}
 
 		// VAT column removed - not needed for order preparation document
 
-		// Vertical line removed - cleaner look for production sheet
+		// Vertical lines to separate columns
 		if (empty($hidetop)) {
-			$pdf->SetXY($this->posxqty - 1, $tab_top + 1);
-			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+			// Vertical line between Designation and Qty
+			$pdf->line($this->posxqty, $tab_top, $this->posxqty, $tab_top + $tab_height);
+			// Vertical line between Qty and listecolis_fp
+			$pdf->line($this->posxlistecolis, $tab_top, $this->posxlistecolis, $tab_top + $tab_height);
+
+			$pdf->SetXY($this->posxqty, $tab_top + 1);
+			$pdf->MultiCell($this->posxlistecolis - $this->posxqty, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+
+			$pdf->SetXY($this->posxlistecolis, $tab_top + 1);
+			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxlistecolis, 2, "Liste Colis", '', 'C');
 		}
 	}
 

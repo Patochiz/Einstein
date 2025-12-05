@@ -423,8 +423,8 @@ class pdf_einstein extends ModelePDFCommandes
 						if (!empty($object->lines[$i]->array_options['options_detail'])) {
 							$detail = $object->lines[$i]->array_options['options_detail'];
 						}
-						// Create a 2-column table with description and detail (only for products)
-						if ($isProduct && (!empty($originalDesc) || !empty($detail))) {
+						// Create a 2-column table with description and detail (only if detail exists)
+						if ($isProduct && !empty($detail)) {
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
 							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $originalDesc . '</td>';
 							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $detail . '</td>';

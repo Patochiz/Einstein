@@ -1164,24 +1164,7 @@ class pdf_einstein extends ModelePDFCommandes
 		$currency = !empty($currency) ? $currency : $conf->currency;
 		$default_font_size = pdf_getPDFFontSize($outputlangs);
 
-		// Amount in (at tab_top - 1)
-		$pdf->SetTextColor(0, 0, 0);
-		$pdf->SetFont('', '', $default_font_size - 2);
-
-		if (empty($hidetop)) {
-			$titre = $outputlangs->transnoentities("AmountInCurrency", $outputlangs->transnoentitiesnoconv("Currency".$currency));
-			if (getDolGlobalString('PDF_USE_ALSO_LANGUAGE_CODE') && is_object($outputlangsbis)) {
-				$titre .= ' - '.$outputlangsbis->transnoentities("AmountInCurrency", $outputlangsbis->transnoentitiesnoconv("Currency".$currency));
-			}
-
-			$pdf->SetXY($this->page_largeur - $this->marge_droite - ($pdf->GetStringWidth($titre) + 3), $tab_top - 4);
-			$pdf->MultiCell(($pdf->GetStringWidth($titre) + 3), 2, $titre);
-
-			//$conf->global->MAIN_PDF_TITLE_BACKGROUND_COLOR='230,230,230';
-			if (getDolGlobalString('MAIN_PDF_TITLE_BACKGROUND_COLOR')) {
-				$pdf->Rect($this->marge_gauche, $tab_top, $this->page_largeur - $this->marge_droite - $this->marge_gauche, 5, 'F', null, explode(',', getDolGlobalString('MAIN_PDF_TITLE_BACKGROUND_COLOR')));
-			}
-		}
+		// Amount in currency text removed - not needed for production sheet
 
 		$pdf->SetDrawColor(128, 128, 128);
 		$pdf->SetFont('', '', $default_font_size - 1);
@@ -1198,7 +1181,7 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// VAT column removed - not needed for order preparation document
 
-		$pdf->line($this->posxqty - 1, $tab_top, $this->posxqty - 1, $tab_top + $tab_height);
+		// Vertical line removed - cleaner look for production sheet
 		if (empty($hidetop)) {
 			$pdf->SetXY($this->posxqty - 1, $tab_top + 1);
 			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
@@ -1275,8 +1258,12 @@ class pdf_einstein extends ModelePDFCommandes
 		$pdf->SetFont('', 'B', $default_font_size + 3);
 		$pdf->SetXY($posx, $posy);
 		$pdf->SetTextColor(0, 0, 60);
-		$title = $outputlangs->transnoentities($titlekey);
+		$title = 'FICHE DE PRODUCTION';
 		$title .= ' '.$outputlangs->convToOutputCharset($object->ref);
+		// Add version from extrafield if available
+		if (!empty($object->array_options['options_version'])) {
+			$title .= ' V'.$object->array_options['options_version'];
+		}
 		if ($object->statut == $object::STATUS_DRAFT) {
 			$pdf->SetTextColor(128, 0, 0);
 			$title .= ' - '.$outputlangs->transnoentities("NotValidated");

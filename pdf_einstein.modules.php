@@ -1422,23 +1422,23 @@ class pdf_einstein extends ModelePDFCommandes
 		}
 
 		if ($showaddress) {
-			// Sender properties
+			// Sender properties - Now showing Customer (Thirdparty) information
 			$carac_emetteur = '';
-			// Add internal contact of object if defined
-			$arrayidcontact = $object->getIdContact('internal', 'SALESREPFOLL');
-			if (count($arrayidcontact) > 0) {
-				$object->fetch_user($arrayidcontact[0]);
-				$labelbeforecontactname = ($outputlangs->transnoentities("FromContactName") != 'FromContactName' ? $outputlangs->transnoentities("FromContactName") : $outputlangs->transnoentities("Name"));
-				$carac_emetteur .= ($carac_emetteur ? "\n" : '').$labelbeforecontactname." ".$outputlangs->convToOutputCharset($object->user->getFullName($outputlangs));
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') || getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT')) ? ' (' : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') && !empty($object->user->office_phone)) ? $object->user->office_phone : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') && getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT')) ? ', ' : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT') && !empty($object->user->email)) ? $object->user->email : '';
-				$carac_emetteur .= (getDolGlobalInt('PDF_SHOW_PHONE_AFTER_USER_CONTACT') || getDolGlobalInt('PDF_SHOW_EMAIL_AFTER_USER_CONTACT')) ? ')' : '';
-				$carac_emetteur .= "\n";
-			}
 
-			$carac_emetteur .= pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', 0, 'source', $object);
+			// Line 1: Client: [Customer Name]
+			$carac_emetteur .= 'Client : '.$outputlangs->convToOutputCharset($object->thirdparty->name)."\n";
+
+			// Line 2: Note privée: [Private note from thirdparty]
+			if (!empty($object->thirdparty->note_private)) {
+				// Convert HTML to plain text for PDF
+				$note_private = strip_tags($object->thirdparty->note_private);
+				// Remove extra line breaks and clean up
+				$note_private = preg_replace("/\n\n+/", "\n", $note_private);
+				$note_private = trim($note_private);
+				if (!empty($note_private)) {
+					$carac_emetteur .= 'Note privée : '.$outputlangs->convToOutputCharset($note_private);
+				}
+			}
 
 			// Show sender
 			$posy = 42 + $top_shift;
@@ -1453,23 +1453,15 @@ class pdf_einstein extends ModelePDFCommandes
 				$pdf->SetTextColor(0, 0, 0);
 				$pdf->SetFont('', '', $default_font_size - 2);
 				$pdf->SetXY($posx, $posy - 5);
-				$pdf->MultiCell(80, 5, $outputlangs->transnoentities("BillFrom"), 0, $ltrdirection);
+				$pdf->MultiCell(80, 5, 'Client', 0, $ltrdirection);
 				$pdf->SetXY($posx, $posy);
 				$pdf->SetFillColor(230, 230, 230);
 				$pdf->MultiCell(82, $hautcadre, "", 0, 'R', 1);
 				$pdf->SetTextColor(0, 0, 60);
 			}
 
-			// Show sender name
-			if (!getDolGlobalString('MAIN_PDF_HIDE_SENDER_NAME')) {
-				$pdf->SetXY($posx + 2, $posy + 3);
-				$pdf->SetFont('', 'B', $default_font_size);
-				$pdf->MultiCell(80, 4, $outputlangs->convToOutputCharset($this->emetteur->name), 0, $ltrdirection);
-				$posy = $pdf->getY();
-			}
-
 			// Show sender information
-			$pdf->SetXY($posx + 2, $posy);
+			$pdf->SetXY($posx + 2, $posy + 3);
 			$pdf->SetFont('', '', $default_font_size - 1);
 			$pdf->MultiCell(80, 4, $carac_emetteur, 0, 'L');
 

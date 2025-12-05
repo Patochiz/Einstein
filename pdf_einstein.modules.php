@@ -396,20 +396,55 @@ class pdf_einstein extends ModelePDFCommandes
 					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
 					$pageposbefore = $pdf->getPage();
 
+					// Check if this is the special "Libelle_Cde" service (ID 361) used as title
+					$isTitleService = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
 					// Description of product line
 					$curX = $this->posxdesc - 1;
 
 					$showpricebeforepagebreak = 1;
 
+					// Modify description for products to include detail extrafield in 2 columns
+					if (!$isTitleService) {
+						$isProduct = (isset($object->lines[$i]->product_type) && $object->lines[$i]->product_type == 0);
+						$originalDesc = $object->lines[$i]->desc;
+						$detail = '';
+						if (!empty($object->lines[$i]->array_options['options_detail'])) {
+							$detail = $object->lines[$i]->array_options['options_detail'];
+						}
+						// Create a 2-column table with description and detail (only for products)
+						if ($isProduct && (!empty($originalDesc) || !empty($detail))) {
+							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $originalDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $detail . '</td>';
+							$object->lines[$i]->desc .= '</tr></table>';
+						}
+					}
+
 					$pdf->startTransaction();
-					pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxtva - $curX, 3, $curX, $curY, $hideref, $hidedesc);
+					if ($isTitleService) {
+						// Special handling for title service: display description on full width in BOLD
+						$pdf->SetFont('', 'B', $default_font_size);
+						$fullWidth = $this->posxqty - $this->posxdesc;
+						$pdf->SetXY($curX, $curY);
+						$pdf->MultiCell($fullWidth, 3, $object->lines[$i]->desc, 0, 'L');
+					} else {
+						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 3, $curX, $curY, $hideref, $hidedesc);
+					}
 					$pageposafter = $pdf->getPage();
 					if ($pageposafter > $pageposbefore) {	// There is a pagebreak
 						$pdf->rollbackTransaction(true);
 						$pageposafter = $pageposbefore;
 						//print $pageposafter.'-'.$pageposbefore;exit;
 						$pdf->setPageOrientation('', 1, $heightforfooter); // The only function to edit the bottom margin of current page to set it.
-						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxtva - $curX, 4, $curX, $curY, $hideref, $hidedesc);
+						if ($isTitleService) {
+							$pdf->SetFont('', 'B', $default_font_size);
+							$fullWidth = $this->posxqty - $this->posxdesc;
+							$pdf->SetXY($curX, $curY);
+							$pdf->MultiCell($fullWidth, 4, $object->lines[$i]->desc, 0, 'L');
+						} else {
+							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 4, $curX, $curY, $hideref, $hidedesc);
+						}
 						$pageposafter = $pdf->getPage();
 						$posyafter = $pdf->GetY();
 						if ($posyafter > ($this->page_hauteur - ($heightforfooter + $heightforfreetext + $heightforinfotot))) {	// There is no space left for total+free text
@@ -454,19 +489,21 @@ class pdf_einstein extends ModelePDFCommandes
 
 					// VAT Rate - removed, not needed for order preparation document
 
-					// Quantity with unit
-					$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
-					$unit = '';
-					if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
-						$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
+					// Quantity with unit (skip for title service ID 361)
+					if (!$isTitleService) {
+						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
+						$unit = '';
+						if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
+							$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
+						}
+						// Combine quantity and unit
+						$qty_with_unit = $qty;
+						if (!empty($unit)) {
+							$qty_with_unit .= ' '.$unit;
+						}
+						$pdf->SetXY($this->posxqty, $curY);
+						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
 					}
-					// Combine quantity and unit
-					$qty_with_unit = $qty;
-					if (!empty($unit)) {
-						$qty_with_unit .= ' '.$unit;
-					}
-					$pdf->SetXY($this->posxqty, $curY);
-					$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
 					if (isModEnabled("multicurrency") && $object->multicurrency_tx != 1) {

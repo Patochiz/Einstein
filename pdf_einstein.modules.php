@@ -396,6 +396,11 @@ class pdf_einstein extends ModelePDFCommandes
 					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
 					$pageposbefore = $pdf->getPage();
 
+					// Skip ECO_TAXE service (ID 288) - don't display it in the PDF
+					if (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 288) {
+						continue;
+					}
+
 					// Check if this is the special "Libelle_Cde" service (ID 361) used as title
 					$isTitleService = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
 

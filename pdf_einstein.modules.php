@@ -357,7 +357,13 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 				}
 				// Extrafields in note
-				$extranote = $this->getExtrafieldsInHtml($object, $outputlangs);
+				// Extrafields in note - visibilité 5 uniquement
+				$params = array(
+					'printableEnable' => array(5),          // Affiche ceux marqués 5
+					'printableEnableNotEmpty' => array()    // Désactive les visibilités 2
+				);
+				$extranote = $this->getExtrafieldsInHtml($object, $outputlangs, $params);
+				
 				if (!empty($extranote)) {
 					$notetoshow = dol_concatdesc($notetoshow, $extranote);
 				}

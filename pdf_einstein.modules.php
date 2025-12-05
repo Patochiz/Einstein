@@ -725,14 +725,10 @@ class pdf_einstein extends ModelePDFCommandes
 				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
 
 				$pdf->SetFont('', 'B', $default_font_size - 1);
-				$pdf->SetFillColor(0, 0, 0);
-				$pdf->Rect($this->marge_gauche, $posy + $lineHeight * 3, $leftColWidth, $lineHeight, 'F');
-				$pdf->SetTextColor(255, 255, 255);
 				$pdf->SetXY($this->marge_gauche + 2, $posy + $lineHeight * 3 + 1);
 				$pdf->Cell(50, $lineHeight - 2, 'NBR TOTAL DE COLIS :', 0, 0, 'L');
 				$pdf->SetXY($this->marge_gauche + $leftColWidth - 33, $posy + $lineHeight * 3 + 1);
 				$pdf->Cell(30, $lineHeight - 2, '_____ COLIS', 0, 0, 'L');
-				$pdf->SetTextColor(0, 0, 0);
 
 				// Draw right section
 				$pdf->SetFont('', '', $default_font_size - 2);

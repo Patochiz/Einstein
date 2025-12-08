@@ -127,10 +127,11 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Define position of columns
 		$this->posxdesc = $this->marge_gauche + 1;
-		// Simplified layout: only Designation and Quantity columns
+		// Main table (60%): Designation + Qty (wider) | Liste Colis box (40%): on right side
 		$this->posxtva = 145;   // Not used anymore but kept for compatibility
 		$this->posxup = 118;    // Not used anymore but kept for compatibility
-		$this->posxqty = 170;   // Moved far right for maximum Designation space (~159mm wide)
+		$this->posxqty = 90;   // Qty column position (wider Qty column)
+		$this->posxlistecolis = 127; // Start of Liste Colis box (60/40 split)
 		$this->posxunit = 151;  // Not used anymore but kept for compatibility
 		$this->posxdiscount = 162;
 		$this->postotalht = 174;
@@ -389,7 +390,7 @@ class pdf_einstein extends ModelePDFCommandes
 				// Loop on each lines
 				for ($i = 0; $i < $nblines; $i++) {
 					$curY = $nexY;
-					$pdf->SetFont('', '', $default_font_size - 1); // Into loop to work with multipage
+					$pdf->SetFont('', '', $default_font_size - 2); // Smaller font for table content
 					$pdf->SetTextColor(0, 0, 0);
 
 					$pdf->setTopMargin($tab_top_newpage);
@@ -422,8 +423,8 @@ class pdf_einstein extends ModelePDFCommandes
 						if (!empty($object->lines[$i]->array_options['options_detail'])) {
 							$detail = $object->lines[$i]->array_options['options_detail'];
 						}
-						// Create a 2-column table with description and detail (only for products)
-						if ($isProduct && (!empty($originalDesc) || !empty($detail))) {
+						// Create a 2-column table with description and detail (only if detail exists)
+						if ($isProduct && !empty($detail)) {
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
 							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $originalDesc . '</td>';
 							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $detail . '</td>';
@@ -433,9 +434,9 @@ class pdf_einstein extends ModelePDFCommandes
 
 					$pdf->startTransaction();
 					if ($isTitleService) {
-						// Special handling for title service: display ref_chantier extrafield on full width in BOLD
+						// Special handling for title service: display ref_chantier extrafield spanning Designation + Qty columns in BOLD
 						$pdf->SetFont('', 'B', $default_font_size);
-						$fullWidth = $this->posxqty - $this->posxdesc;
+						$fullWidth = $this->posxlistecolis - $this->posxdesc;
 						$pdf->SetXY($curX, $curY);
 						// Use ref_chantier extrafield instead of description
 						$titleText = '';
@@ -457,7 +458,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->setPageOrientation('', 1, $heightforfooter); // The only function to edit the bottom margin of current page to set it.
 						if ($isTitleService) {
 							$pdf->SetFont('', 'B', $default_font_size);
-							$fullWidth = $this->posxqty - $this->posxdesc;
+							$fullWidth = $this->posxlistecolis - $this->posxdesc;
 							$pdf->SetXY($curX, $curY);
 							// Use ref_chantier extrafield instead of description
 							$titleText = '';
@@ -511,7 +512,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$curY = $tab_top_newpage;
 					}
 
-					$pdf->SetFont('', '', $default_font_size - 1); // We reposition the default font
+					$pdf->SetFont('', '', $default_font_size - 2); // We reposition the default font
 
 					// VAT Rate - removed, not needed for order preparation document
 
@@ -528,7 +529,7 @@ class pdf_einstein extends ModelePDFCommandes
 							$qty_with_unit .= ' '.$unit;
 						}
 						$pdf->SetXY($this->posxqty, $curY);
-						$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty, 4, $qty_with_unit, 0, 'R');
+						$pdf->MultiCell($this->posxlistecolis - $this->posxqty - 2, 4, $qty_with_unit, 0, 'C');
 					}
 
 					// Collection of totals by value of vat in $this->vat["rate"] = total_tva
@@ -602,7 +603,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->setPage($pageposafter);
 						$pdf->SetLineStyle(array('dash' => '1,1', 'color' => array(80, 80, 80)));
 						//$pdf->SetDrawColor(190,190,200);
-						$pdf->line($this->marge_gauche, $nexY + 1, $this->page_largeur - $this->marge_droite, $nexY + 1);
+						$pdf->line($this->marge_gauche, $nexY + 1, $this->posxlistecolis - 2, $nexY + 1);
 						$pdf->SetLineStyle(array('dash' => 0));
 					}
 
@@ -612,9 +613,9 @@ class pdf_einstein extends ModelePDFCommandes
 					while ($pagenb < $pageposafter) {
 						$pdf->setPage($pagenb);
 						if ($pagenb == 1) {
-							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code, null, $object);
 						} else {
-							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code, null, $object);
 						}
 						$this->_pagefoot($pdf, $object, $outputlangs, 1);
 						$pagenb++;
@@ -629,9 +630,9 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 					if (isset($object->lines[$i + 1]->pagebreak) && $object->lines[$i + 1]->pagebreak) {
 						if ($pagenb == 1) {
-							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code, null, $object);
 						} else {
-							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code);
+							$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code, null, $object);
 						}
 						$this->_pagefoot($pdf, $object, $outputlangs, 1);
 						// New page
@@ -648,11 +649,12 @@ class pdf_einstein extends ModelePDFCommandes
 
 				// Show square
 				if ($pagenb == 1) {
-					$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 0, 0, $object->multicurrency_code);
+					$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 0, 0, $object->multicurrency_code, null, $object);
 				} else {
-					$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 1, 0, $object->multicurrency_code);
+					$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforinfotot - $heightforfreetext - $heightforfooter, 0, $outputlangs, 1, 0, $object->multicurrency_code, null, $object);
 				}
 				$bottomlasttab = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter + 1;
+
 
 				// Display custom info: Number of packages and total weight
 				$pdf->SetFont('', 'B', $default_font_size);
@@ -1296,9 +1298,10 @@ class pdf_einstein extends ModelePDFCommandes
 	 *   @param		int			$hidebottom		Hide bottom bar of array
 	 *   @param		string		$currency		Currency code
 	 *   @param		Translate	$outputlangsbis	Langs object bis
+	 *   @param		Commande	$object			Object order (for Liste Colis extrafield)
 	 *   @return	void
 	 */
-	protected function _tableau(&$pdf, $tab_top, $tab_height, $nexY, $outputlangs, $hidetop = 0, $hidebottom = 0, $currency = '', $outputlangsbis = null)
+	protected function _tableau(&$pdf, $tab_top, $tab_height, $nexY, $outputlangs, $hidetop = 0, $hidebottom = 0, $currency = '', $outputlangsbis = null, $object = null)
 	{
 		global $conf;
 
@@ -1316,22 +1319,48 @@ class pdf_einstein extends ModelePDFCommandes
 		$pdf->SetDrawColor(128, 128, 128);
 		$pdf->SetFont('', '', $default_font_size - 1);
 
-		// Output Rect
-		$this->printRect($pdf, $this->marge_gauche, $tab_top, $this->page_largeur - $this->marge_gauche - $this->marge_droite, $tab_height, $hidetop, $hidebottom); // Rect takes a length in 3rd parameter and 4th parameter
+		// Output Rect for main table only (Designation + Qty)
+		$mainTableWidth = $this->posxlistecolis - $this->marge_gauche - 2;
+		$this->printRect($pdf, $this->marge_gauche, $tab_top, $mainTableWidth, $tab_height, $hidetop, $hidebottom);
 
 		if (empty($hidetop)) {
-			$pdf->line($this->marge_gauche, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5); // line takes a position y in 2nd parameter and 4th parameter
+			$pdf->line($this->marge_gauche, $tab_top + 5, $this->posxlistecolis - 2, $tab_top + 5);
 
 			$pdf->SetXY($this->posxdesc - 1, $tab_top + 1);
-			$pdf->MultiCell(108, 2, $outputlangs->transnoentities("Designation"), '', 'L');
+			$pdf->MultiCell($this->posxqty - $this->posxdesc, 2, $outputlangs->transnoentities("Designation"), '', 'L');
+
+			$pdf->SetXY($this->posxqty, $tab_top + 1);
+			$pdf->MultiCell($this->posxlistecolis - $this->posxqty - 2, 2, $outputlangs->transnoentities("Qty"), '', 'C');
 		}
 
-		// VAT column removed - not needed for order preparation document
+		// Draw separate Liste Colis box on the right side (on every page)
+		if (!empty($object)) {
+			$listeColisX = $this->posxlistecolis;
+			$listeColisWidth = $this->page_largeur - $this->marge_droite - $listeColisX;
 
-		// Vertical line removed - cleaner look for production sheet
-		if (empty($hidetop)) {
-			$pdf->SetXY($this->posxqty - 1, $tab_top + 1);
-			$pdf->MultiCell($this->page_largeur - $this->marge_droite - $this->posxqty + 1, 2, $outputlangs->transnoentities("Qty"), '', 'C');
+			// Draw box border
+			$pdf->Rect($listeColisX, $tab_top, $listeColisWidth, $tab_height, 'D');
+
+			// Add header
+			$pdf->SetFont('', 'B', $default_font_size - 1);
+			$pdf->SetXY($listeColisX, $tab_top + 1);
+			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
+			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
+
+			// Display content (HTML decoded) - only on first page
+			if (empty($hidetop)) {
+				$pdf->SetFont('', '', $default_font_size - 2);
+				$listeColisContent = '';
+				if (!empty($object->array_options['options_listecolis_fp'])) {
+					$listeColisContent = $object->array_options['options_listecolis_fp'];
+					// Strip HTML tags and decode entities
+					$listeColisContent = strip_tags($listeColisContent);
+					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);
+				}
+				$pdf->SetXY($listeColisX + 1, $tab_top + 6);
+				$pdf->MultiCell($listeColisWidth - 2, 3, $listeColisContent, 0, 'L');
+			}
 		}
 	}
 

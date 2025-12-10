@@ -1353,7 +1353,10 @@ class pdf_einstein extends ModelePDFCommandes
 				$listeColisContent = '';
 				if (!empty($object->array_options['options_listecolis_fp'])) {
 					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					// Strip HTML tags and decode entities
+					// Preserve line breaks: convert HTML line breaks to \n before stripping tags
+					$listeColisContent = str_replace(array('<br>', '<br/>', '<br />', '<BR>', '<BR/>', '<BR />'), "\n", $listeColisContent);
+					$listeColisContent = str_replace(array('</p>', '</P>'), "\n\n", $listeColisContent);
+					// Strip remaining HTML tags and decode entities
 					$listeColisContent = strip_tags($listeColisContent);
 					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);

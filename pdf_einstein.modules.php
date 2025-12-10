@@ -430,8 +430,8 @@ class pdf_einstein extends ModelePDFCommandes
 							$processedDetail = dol_htmlentitiesbr($detail);
 
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $processedDesc . '</td>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $processedDetail . '</td>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top" align="left">' . $processedDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top" align="left">' . $processedDetail . '</td>';
 							$object->lines[$i]->desc .= '</tr></table>';
 						}
 					}

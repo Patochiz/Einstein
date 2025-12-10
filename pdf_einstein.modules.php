@@ -1352,8 +1352,10 @@ class pdf_einstein extends ModelePDFCommandes
 				$pdf->SetFont('', '', $default_font_size - 2);
 				if (!empty($object->array_options['options_listecolis_fp'])) {
 					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					// Use Dolibarr's native HTML rendering function (same as used for notes and other HTML extrafields)
-					$pdf->writeHTMLCell($listeColisWidth - 2, 0, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 1, false, true, 'L');
+					// Calculate available height for content (total height minus header space)
+					$availableHeight = $tab_height - 6;
+					// Use Dolibarr's native HTML rendering function with height constraint to prevent overflow
+					$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 1, false, true, 'L');
 				}
 			}
 		}

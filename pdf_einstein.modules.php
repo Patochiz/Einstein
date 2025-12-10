@@ -425,9 +425,13 @@ class pdf_einstein extends ModelePDFCommandes
 						}
 						// Create a 2-column table with description and detail (only if detail exists)
 						if ($isProduct && !empty($detail)) {
+							// Use Dolibarr's native HTML processing function for both columns
+							$processedDesc = dol_htmlentitiesbr($originalDesc);
+							$processedDetail = dol_htmlentitiesbr($detail);
+
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $originalDesc . '</td>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $detail . '</td>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $processedDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $processedDetail . '</td>';
 							$object->lines[$i]->desc .= '</tr></table>';
 						}
 					}

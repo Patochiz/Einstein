@@ -1347,22 +1347,14 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
 			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
 
-			// Display content (HTML decoded) - only on first page
+			// Display content (HTML rendered properly) - only on first page
 			if (empty($hidetop)) {
 				$pdf->SetFont('', '', $default_font_size - 2);
-				$listeColisContent = '';
 				if (!empty($object->array_options['options_listecolis_fp'])) {
 					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					// Preserve line breaks: convert HTML line breaks to \n before stripping tags
-					$listeColisContent = str_replace(array('<br>', '<br/>', '<br />', '<BR>', '<BR/>', '<BR />'), "\n", $listeColisContent);
-					$listeColisContent = str_replace(array('</p>', '</P>'), "\n\n", $listeColisContent);
-					// Strip remaining HTML tags and decode entities
-					$listeColisContent = strip_tags($listeColisContent);
-					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);
+					// Use Dolibarr's native HTML rendering function (same as used for notes and other HTML extrafields)
+					$pdf->writeHTMLCell($listeColisWidth - 2, 0, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 1, false, true, 'L');
 				}
-				$pdf->SetXY($listeColisX + 1, $tab_top + 6);
-				$pdf->MultiCell($listeColisWidth - 2, 3, $listeColisContent, 0, 'L');
 			}
 		}
 	}

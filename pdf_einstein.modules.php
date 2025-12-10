@@ -416,6 +416,8 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 
 					// Modify description for products to include detail extrafield in 2 columns
+					// Flag to track if this line has detail (will extend into Qty column)
+					$hasDetailColumn = false;
 					if (!$isTitleService) {
 						$isProduct = (isset($object->lines[$i]->product_type) && $object->lines[$i]->product_type == 0);
 						$originalDesc = $object->lines[$i]->desc;
@@ -424,14 +426,29 @@ class pdf_einstein extends ModelePDFCommandes
 							$detail = $object->lines[$i]->array_options['options_detail'];
 						}
 						// Create a 2-column table with description and detail (only if detail exists)
+						// This table will extend into Qty column space for more horizontal room
 						if ($isProduct && !empty($detail)) {
+							$hasDetailColumn = true;
 							// Use Dolibarr's native HTML processing function for both columns
 							$processedDesc = dol_htmlentitiesbr($originalDesc);
 							$processedDetail = dol_htmlentitiesbr($detail);
 
+							// Get quantity to append to detail column
+							$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
+							$unit = '';
+							if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
+								$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
+							}
+							$qty_with_unit = $qty;
+							if (!empty($unit)) {
+								$qty_with_unit .= ' ' . $unit;
+							}
+
+							// 35% for description, 65% for detail with qty at the end
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top" align="left">' . $processedDesc . '</td>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top" align="left">' . $processedDetail . '</td>';
+							$object->lines[$i]->desc .= '<td width="35%" valign="top" align="left">' . $processedDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="65%" valign="top" align="left">' . $processedDetail;
+							$object->lines[$i]->desc .= '<br><strong>Qté: ' . $qty_with_unit . '</strong></td>';
 							$object->lines[$i]->desc .= '</tr></table>';
 						}
 					}
@@ -452,7 +469,9 @@ class pdf_einstein extends ModelePDFCommandes
 						$titleText = $outputlangs->convToOutputCharset($titleText);
 						$pdf->MultiCell($fullWidth, 3, $titleText, 0, 'L');
 					} else {
-						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 3, $curX, $curY, $hideref, $hidedesc);
+						// If line has detail column, extend width to include Qty column space
+						$lineWidth = $hasDetailColumn ? ($this->posxlistecolis - $curX - 2) : ($this->posxqty - $curX);
+						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $lineWidth, 3, $curX, $curY, $hideref, $hidedesc);
 					}
 					$pageposafter = $pdf->getPage();
 					if ($pageposafter > $pageposbefore) {	// There is a pagebreak
@@ -474,7 +493,9 @@ class pdf_einstein extends ModelePDFCommandes
 							$titleText = $outputlangs->convToOutputCharset($titleText);
 							$pdf->MultiCell($fullWidth, 4, $titleText, 0, 'L');
 						} else {
-							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 4, $curX, $curY, $hideref, $hidedesc);
+							// If line has detail column, extend width to include Qty column space
+							$lineWidth = $hasDetailColumn ? ($this->posxlistecolis - $curX - 2) : ($this->posxqty - $curX);
+							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $lineWidth, 4, $curX, $curY, $hideref, $hidedesc);
 						}
 						$pageposafter = $pdf->getPage();
 						$posyafter = $pdf->GetY();
@@ -520,8 +541,8 @@ class pdf_einstein extends ModelePDFCommandes
 
 					// VAT Rate - removed, not needed for order preparation document
 
-					// Quantity with unit (skip for title service ID 361)
-					if (!$isTitleService) {
+					// Quantity with unit (skip for title service ID 361 and when detail column extends into Qty space)
+					if (!$isTitleService && !$hasDetailColumn) {
 						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
 						$unit = '';
 						if (getDolGlobalInt('PRODUCT_USE_UNITS')) {

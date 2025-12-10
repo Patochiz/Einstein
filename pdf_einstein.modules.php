@@ -1354,8 +1354,16 @@ class pdf_einstein extends ModelePDFCommandes
 					$listeColisContent = $object->array_options['options_listecolis_fp'];
 					// Calculate available height for content (total height minus header space)
 					$availableHeight = $tab_height - 6;
-					// Use Dolibarr's native HTML rendering function with height constraint to prevent overflow
+
+					// Disable auto page break to prevent content from flowing to next page
+					$autoPageBreak = $pdf->getAutoPageBreak();
+					$pdf->SetAutoPageBreak(false);
+
+					// Use Dolibarr's native HTML rendering function with height constraint
 					$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 1, false, true, 'L');
+
+					// Restore auto page break setting
+					$pdf->SetAutoPageBreak($autoPageBreak);
 				}
 			}
 		}

@@ -1359,10 +1359,15 @@ class pdf_einstein extends ModelePDFCommandes
 					$autoPageBreak = $pdf->getAutoPageBreak();
 					$pdf->SetAutoPageBreak(false);
 
-					// Use Dolibarr's native HTML rendering function with height constraint
+					// Use clipping region to physically constrain content within the box
+					$pdf->StartTransform();
+					$pdf->Rect($listeColisX + 1, $tab_top + 6, $listeColisWidth - 2, $availableHeight, 'CNZ');
+
+					// Use Dolibarr's native HTML rendering function
 					$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 1, false, true, 'L');
 
-					// Restore auto page break setting
+					// Stop clipping and restore auto page break setting
+					$pdf->StopTransform();
 					$pdf->SetAutoPageBreak($autoPageBreak);
 				}
 			}

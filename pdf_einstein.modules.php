@@ -1377,27 +1377,10 @@ class pdf_einstein extends ModelePDFCommandes
 				$pdf->SetFont('', '', $default_font_size - 2);
 				if (!empty($object->array_options['options_listecolis_fp'])) {
 					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					// Calculate available height for content (total height minus header space)
-					$availableHeight = $tab_height - 6;
 
-					// Save current Y position to restore after rendering
-					$savedY = $pdf->GetY();
-
-					// Disable auto page break to prevent content from flowing to next page
-					$autoPageBreak = $pdf->getAutoPageBreak();
-					$pdf->SetAutoPageBreak(false);
-
-					// Use clipping region to physically constrain content within the box
-					$pdf->StartTransform();
-					$pdf->Rect($listeColisX + 1, $tab_top + 6, $listeColisWidth - 2, $availableHeight, 'CNZ');
-
+					// Don't constrain height - let content flow naturally
 					// Use Dolibarr's native HTML rendering function (ln=0 to not move cursor)
-					$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 0, false, true, 'L');
-
-					// Stop clipping and restore settings
-					$pdf->StopTransform();
-					$pdf->SetAutoPageBreak($autoPageBreak);
-					$pdf->SetY($savedY); // Restore Y position to not affect main table pagination
+					$pdf->writeHTMLCell($listeColisWidth - 2, 0, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 0, false, true, 'L');
 				}
 			}
 		}

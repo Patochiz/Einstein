@@ -79,6 +79,12 @@ class pdf_einstein extends ModelePDFCommandes
 	 */
 	public $version = 'dolibarr';
 
+	/**
+	 * Current chunk index for Liste Colis multi-page rendering
+	 * @var int
+	 */
+	public static $listeColisChunkIndex = 0;
+
 
 	/**
 	 *	Constructor
@@ -184,6 +190,9 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Load translation files required by the page
 		$outputlangs->loadLangs(array("main", "dict", "companies", "bills", "products", "orders", "deliveries"));
+
+		// Reset Liste Colis chunk index for this document
+		self::$listeColisChunkIndex = 0;
 
 		// Show Draft Watermark
 		if ($object->statut == $object::STATUS_DRAFT && getDolGlobalString('COMMANDE_DRAFT_WATERMARK')) {
@@ -1372,22 +1381,32 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
 			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
 
-			// Display content (HTML rendered properly)
-			if (empty($hidetop)) {
-				// First page: render initial content
-				$pdf->SetFont('', '', $default_font_size - 2);
-				if (!empty($object->array_options['options_listecolis_fp'])) {
-					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					$availableHeight = $tab_height - 6;
+			// Display content (HTML rendered properly) - split by marker for multi-page
+			$pdf->SetFont('', '', $default_font_size - 2);
+			if (!empty($object->array_options['options_listecolis_fp'])) {
+				$listeColisContent = $object->array_options['options_listecolis_fp'];
+				$availableHeight = $tab_height - 6;
 
-					// Disable auto page break and use MultiCell for better control
-					$autoPageBreak = $pdf->getAutoPageBreak();
-					$pdf->SetAutoPageBreak(false);
+				// Split content by marker: <hr /><br /> or <hr/><br/> or <hr><br> variations
+				$chunks = preg_split('/<hr\s*\/?>\s*<br\s*\/?>/i', $listeColisContent);
 
-					// Use writeHTMLCell with strict height limit, ln=0 to not move cursor
-					$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 0, false, true, 'L', true);
+				// Check if we have a chunk for the current index
+				if (isset($chunks[self::$listeColisChunkIndex])) {
+					$currentChunk = trim($chunks[self::$listeColisChunkIndex]);
 
-					$pdf->SetAutoPageBreak($autoPageBreak);
+					if (!empty($currentChunk)) {
+						// Disable auto page break to prevent overflow
+						$autoPageBreak = $pdf->getAutoPageBreak();
+						$pdf->SetAutoPageBreak(false);
+
+						// Render current chunk with strict height limit
+						$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($currentChunk), 0, 0, false, true, 'L', true);
+
+						$pdf->SetAutoPageBreak($autoPageBreak);
+					}
+
+					// Increment chunk index for next page
+					self::$listeColisChunkIndex++;
 				}
 			}
 		}

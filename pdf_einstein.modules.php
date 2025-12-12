@@ -1372,15 +1372,22 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
 			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
 
-			// Display content (HTML rendered properly) - only on first page
+			// Display content (HTML rendered properly)
 			if (empty($hidetop)) {
+				// First page: render initial content
 				$pdf->SetFont('', '', $default_font_size - 2);
 				if (!empty($object->array_options['options_listecolis_fp'])) {
 					$listeColisContent = $object->array_options['options_listecolis_fp'];
+					$availableHeight = $tab_height - 6;
 
-					// Don't constrain height - let content flow naturally
-					// Use Dolibarr's native HTML rendering function (ln=0 to not move cursor)
-					$pdf->writeHTMLCell($listeColisWidth - 2, 0, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 0, false, true, 'L');
+					// Disable auto page break and use MultiCell for better control
+					$autoPageBreak = $pdf->getAutoPageBreak();
+					$pdf->SetAutoPageBreak(false);
+
+					// Use writeHTMLCell with strict height limit, ln=0 to not move cursor
+					$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($listeColisContent), 0, 0, false, true, 'L', true);
+
+					$pdf->SetAutoPageBreak($autoPageBreak);
 				}
 			}
 		}

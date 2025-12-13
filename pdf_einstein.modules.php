@@ -80,6 +80,12 @@ class pdf_einstein extends ModelePDFCommandes
 	 */
 	public $version = 'dolibarr';
 
+	/**
+	 * Current chunk index for Liste Colis multi-page rendering
+	 * @var int
+	 */
+	public static $listeColisChunkIndex = 0;
+
 
 	/**
 	 *	Constructor
@@ -185,6 +191,9 @@ class pdf_einstein extends ModelePDFCommandes
 
 		// Load translation files required by the page
 		$outputlangs->loadLangs(array("main", "dict", "companies", "bills", "products", "orders", "deliveries"));
+
+		// Reset Liste Colis chunk index for this document
+		self::$listeColisChunkIndex = 0;
 
 		// Show Draft Watermark
 		if ($object->statut == $object::STATUS_DRAFT && getDolGlobalString('COMMANDE_DRAFT_WATERMARK')) {
@@ -417,6 +426,8 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 
 					// Modify description for products to include detail extrafield in 2 columns
+					// Flag to track if this line has detail (will extend into Qty column)
+					$hasDetailColumn = false;
 					if (!$isTitleService) {
 						$isProduct = (isset($object->lines[$i]->product_type) && $object->lines[$i]->product_type == 0);
 						$originalDesc = $object->lines[$i]->desc;
@@ -425,10 +436,29 @@ class pdf_einstein extends ModelePDFCommandes
 							$detail = $object->lines[$i]->array_options['options_detail'];
 						}
 						// Create a 2-column table with description and detail (only if detail exists)
+						// This table will extend into Qty column space for more horizontal room
 						if ($isProduct && !empty($detail)) {
+							$hasDetailColumn = true;
+							// Use Dolibarr's native HTML processing function for both columns
+							$processedDesc = dol_htmlentitiesbr($originalDesc);
+							$processedDetail = dol_htmlentitiesbr($detail);
+
+							// Get quantity to append to detail column
+							$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
+							$unit = '';
+							if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
+								$unit = pdf_getlineunit($object, $i, $outputlangs, $hidedetails);
+							}
+							$qty_with_unit = $qty;
+							if (!empty($unit)) {
+								$qty_with_unit .= ' ' . $unit;
+							}
+
+							// 35% for description, 65% for detail with qty at the end
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $originalDesc . '</td>';
-							$object->lines[$i]->desc .= '<td width="50%" valign="top">' . $detail . '</td>';
+							$object->lines[$i]->desc .= '<td width="35%" valign="top" align="left">' . $processedDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="65%" valign="top" align="left">' . $processedDetail;
+							$object->lines[$i]->desc .= '<br><strong>Qté: ' . $qty_with_unit . '</strong></td>';
 							$object->lines[$i]->desc .= '</tr></table>';
 						}
 					}
@@ -449,7 +479,9 @@ class pdf_einstein extends ModelePDFCommandes
 						$titleText = $outputlangs->convToOutputCharset($titleText);
 						$pdf->MultiCell($fullWidth, 3, $titleText, 0, 'L');
 					} else {
-						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 3, $curX, $curY, $hideref, $hidedesc);
+						// If line has detail column, extend width to include Qty column space
+						$lineWidth = $hasDetailColumn ? ($this->posxlistecolis - $curX - 2) : ($this->posxqty - $curX);
+						pdf_writelinedesc($pdf, $object, $i, $outputlangs, $lineWidth, 3, $curX, $curY, $hideref, $hidedesc);
 					}
 					$pageposafter = $pdf->getPage();
 					if ($pageposafter > $pageposbefore) {	// There is a pagebreak
@@ -471,7 +503,9 @@ class pdf_einstein extends ModelePDFCommandes
 							$titleText = $outputlangs->convToOutputCharset($titleText);
 							$pdf->MultiCell($fullWidth, 4, $titleText, 0, 'L');
 						} else {
-							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $this->posxqty - $curX, 4, $curX, $curY, $hideref, $hidedesc);
+							// If line has detail column, extend width to include Qty column space
+							$lineWidth = $hasDetailColumn ? ($this->posxlistecolis - $curX - 2) : ($this->posxqty - $curX);
+							pdf_writelinedesc($pdf, $object, $i, $outputlangs, $lineWidth, 4, $curX, $curY, $hideref, $hidedesc);
 						}
 						$pageposafter = $pdf->getPage();
 						$posyafter = $pdf->GetY();
@@ -517,8 +551,8 @@ class pdf_einstein extends ModelePDFCommandes
 
 					// VAT Rate - removed, not needed for order preparation document
 
-					// Quantity with unit (skip for title service ID 361)
-					if (!$isTitleService) {
+					// Quantity with unit (skip for title service ID 361 and when detail column extends into Qty space)
+					if (!$isTitleService && !$hasDetailColumn) {
 						$qty = pdf_getlineqty($object, $i, $outputlangs, $hidedetails);
 						$unit = '';
 						if (getDolGlobalInt('PRODUCT_USE_UNITS')) {
@@ -1348,19 +1382,33 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
 			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
 
-			// Display content (HTML decoded) - only on first page
-			if (empty($hidetop)) {
-				$pdf->SetFont('', '', $default_font_size - 2);
-				$listeColisContent = '';
-				if (!empty($object->array_options['options_listecolis_fp'])) {
-					$listeColisContent = $object->array_options['options_listecolis_fp'];
-					// Strip HTML tags and decode entities
-					$listeColisContent = strip_tags($listeColisContent);
-					$listeColisContent = html_entity_decode($listeColisContent, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-					$listeColisContent = $outputlangs->convToOutputCharset($listeColisContent);
+			// Display content (HTML rendered properly) - split by marker for multi-page
+			$pdf->SetFont('', '', $default_font_size - 1);
+			if (!empty($object->array_options['options_listecolis_fp'])) {
+				$listeColisContent = $object->array_options['options_listecolis_fp'];
+				$availableHeight = $tab_height - 6;
+
+				// Split content by marker: <hr /><br /> or <hr/><br/> or <hr><br> variations
+				$chunks = preg_split('/<hr\s*\/?>\s*<br\s*\/?>/i', $listeColisContent);
+
+				// Check if we have a chunk for the current index
+				if (isset($chunks[self::$listeColisChunkIndex])) {
+					$currentChunk = trim($chunks[self::$listeColisChunkIndex]);
+
+					if (!empty($currentChunk)) {
+						// Disable auto page break to prevent overflow
+						$autoPageBreak = $pdf->getAutoPageBreak();
+						$pdf->SetAutoPageBreak(false);
+
+						// Render current chunk with strict height limit
+						$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($currentChunk), 0, 0, false, true, 'L', true);
+
+						$pdf->SetAutoPageBreak($autoPageBreak);
+					}
+
+					// Increment chunk index for next page
+					self::$listeColisChunkIndex++;
 				}
-				$pdf->SetXY($listeColisX + 1, $tab_top + 6);
-				$pdf->MultiCell($listeColisWidth - 2, 3, $listeColisContent, 0, 'L');
 			}
 		}
 	}

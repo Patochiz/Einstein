@@ -1382,7 +1382,7 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
 
 			// Display content (HTML rendered properly) - split by marker for multi-page
-			$pdf->SetFont('', '', $default_font_size - 2);
+			$pdf->SetFont('', '', $default_font_size - 1);
 			if (!empty($object->array_options['options_listecolis_fp'])) {
 				$listeColisContent = $object->array_options['options_listecolis_fp'];
 				$availableHeight = $tab_height - 6;

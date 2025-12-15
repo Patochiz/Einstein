@@ -399,7 +399,7 @@ class pdf_einstein extends ModelePDFCommandes
 				// Loop on each lines
 				for ($i = 0; $i < $nblines; $i++) {
 					$curY = $nexY;
-					$pdf->SetFont('', '', $default_font_size - 2); // Smaller font for table content
+					$pdf->SetFont('', '', $default_font_size - 1); // Increased font for table content
 					$pdf->SetTextColor(0, 0, 0);
 
 					$pdf->setTopMargin($tab_top_newpage);
@@ -453,10 +453,10 @@ class pdf_einstein extends ModelePDFCommandes
 								$qty_with_unit .= ' ' . $unit;
 							}
 
-							// 35% for description, 65% for detail with qty at the end
+							// 45% for description, 55% for detail with qty at the end
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
-							$object->lines[$i]->desc .= '<td width="35%" valign="top" align="left">' . $processedDesc . '</td>';
-							$object->lines[$i]->desc .= '<td width="65%" valign="top" align="left">' . $processedDetail;
+							$object->lines[$i]->desc .= '<td width="45%" valign="top" align="left">' . $processedDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="55%" valign="top" align="left">' . $processedDetail;
 							$object->lines[$i]->desc .= '<br><strong>Qté: ' . $qty_with_unit . '</strong></td>';
 							$object->lines[$i]->desc .= '</tr></table>';
 						}

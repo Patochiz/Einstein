@@ -86,6 +86,24 @@ class pdf_einstein extends ModelePDFCommandes
 	 */
 	public static $listeColisChunkIndex = 0;
 
+	/**
+	 * Parsed lines of Liste Colis for multi-page rendering
+	 * @var array
+	 */
+	public static $listeColisLines = array();
+
+	/**
+	 * Current line index for Liste Colis rendering
+	 * @var int
+	 */
+	public static $listeColisLineIndex = 0;
+
+	/**
+	 * Flag indicating if Liste Colis content has been parsed
+	 * @var bool
+	 */
+	public static $listeColisParsed = false;
+
 
 	/**
 	 *	Constructor
@@ -192,8 +210,11 @@ class pdf_einstein extends ModelePDFCommandes
 		// Load translation files required by the page
 		$outputlangs->loadLangs(array("main", "dict", "companies", "bills", "products", "orders", "deliveries"));
 
-		// Reset Liste Colis chunk index for this document
+		// Reset Liste Colis variables for this document
 		self::$listeColisChunkIndex = 0;
+		self::$listeColisLines = array();
+		self::$listeColisLineIndex = 0;
+		self::$listeColisParsed = false;
 
 		// Show Draft Watermark
 		if ($object->statut == $object::STATUS_DRAFT && getDolGlobalString('COMMANDE_DRAFT_WATERMARK')) {
@@ -1407,35 +1428,104 @@ class pdf_einstein extends ModelePDFCommandes
 			$pdf->Cell($listeColisWidth, 5, "Liste Colis", 0, 1, 'C');
 			$pdf->line($listeColisX, $tab_top + 5, $this->page_largeur - $this->marge_droite, $tab_top + 5);
 
-			// Display content (HTML rendered properly) - split by marker for multi-page
+			// Display content with line-by-line Y position tracking for automatic page breaks
 			$pdf->SetFont('', '', $default_font_size - 1);
 			if (!empty($object->array_options['options_listecolis_fp'])) {
 				$listeColisContent = $object->array_options['options_listecolis_fp'];
-				$availableHeight = $tab_height - 6;
 
-				// Split content by marker: <hr /><br /> or <hr/><br/> or <hr><br> variations
-				$chunks = preg_split('/<hr\s*\/?>\s*<br\s*\/?>/i', $listeColisContent);
+				// Parse HTML into individual lines only once
+				if (!self::$listeColisParsed) {
+					self::$listeColisLines = $this->parseListeColisHTML($listeColisContent);
+					self::$listeColisParsed = true;
+					self::$listeColisLineIndex = 0;
+				}
 
-				// Check if we have a chunk for the current index
-				if (isset($chunks[self::$listeColisChunkIndex])) {
-					$currentChunk = trim($chunks[self::$listeColisChunkIndex]);
+				// Calculate available space
+				$contentStartY = $tab_top + 6;
+				$maxY = $tab_top + $tab_height - 2;
+				$curY = $contentStartY;
+				$contentWidth = $listeColisWidth - 2;
 
-					if (!empty($currentChunk)) {
-						// Disable auto page break to prevent overflow
-						$autoPageBreak = $pdf->getAutoPageBreak();
-						$pdf->SetAutoPageBreak(false);
+				// Disable auto page break to control it manually
+				$autoPageBreak = $pdf->getAutoPageBreak();
+				$pdf->SetAutoPageBreak(false);
 
-						// Render current chunk with strict height limit
-						$pdf->writeHTMLCell($listeColisWidth - 2, $availableHeight, $listeColisX + 1, $tab_top + 6, dol_htmlentitiesbr($currentChunk), 0, 0, false, true, 'L', true);
+				// Render lines one by one with Y position tracking
+				while (self::$listeColisLineIndex < count(self::$listeColisLines)) {
+					$line = self::$listeColisLines[self::$listeColisLineIndex];
 
-						$pdf->SetAutoPageBreak($autoPageBreak);
+					if (empty(trim($line))) {
+						self::$listeColisLineIndex++;
+						continue;
 					}
 
-					// Increment chunk index for next page
-					self::$listeColisChunkIndex++;
+					// Calculate the height this line will need
+					$pdf->startTransaction();
+					$pdf->SetXY($listeColisX + 1, $curY);
+					$pdf->writeHTMLCell($contentWidth, 0, $listeColisX + 1, $curY, $line, 0, 1, false, true, 'L', true);
+					$lineHeight = $pdf->GetY() - $curY;
+					$pdf->rollbackTransaction(true);
+
+					// Check if line fits on current page
+					if (($curY + $lineHeight) > $maxY && $curY > $contentStartY) {
+						// Line doesn't fit, stop and continue on next page
+						break;
+					}
+
+					// Render the line
+					$pdf->writeHTMLCell($contentWidth, 0, $listeColisX + 1, $curY, $line, 0, 1, false, true, 'L', true);
+					$curY = $pdf->GetY();
+
+					self::$listeColisLineIndex++;
+				}
+
+				$pdf->SetAutoPageBreak($autoPageBreak);
+			}
+		}
+	}
+
+	/**
+	 * Parse Liste Colis HTML content into individual lines for Y position tracking
+	 *
+	 * @param string $htmlContent The HTML content to parse
+	 * @return array Array of individual HTML lines
+	 */
+	protected function parseListeColisHTML($htmlContent)
+	{
+		$lines = array();
+
+		// Remove page break markers (they are no longer needed with Y tracking)
+		$htmlContent = preg_replace('/<hr\s*\/?>\s*<br\s*\/?>/i', '', $htmlContent);
+
+		// Split by <div> tags - each div is a logical line
+		if (preg_match_all('/<div[^>]*>(.*?)<\/div>/is', $htmlContent, $matches)) {
+			foreach ($matches[0] as $div) {
+				// Check if this div contains multiple lines (via <br /> tags)
+				$divContent = preg_replace('/<\/?div[^>]*>/i', '', $div);
+
+				// Split by <br /> or <br> to get individual lines
+				$subLines = preg_split('/<br\s*\/?>/i', $divContent);
+
+				foreach ($subLines as $subLine) {
+					$subLine = trim($subLine);
+					if (!empty($subLine)) {
+						// Wrap in div for consistent rendering
+						$lines[] = '<div style="margin:0;padding:0;">' . $subLine . '</div>';
+					}
+				}
+			}
+		} else {
+			// Fallback: split by <br /> if no divs found
+			$subLines = preg_split('/<br\s*\/?>/i', $htmlContent);
+			foreach ($subLines as $subLine) {
+				$subLine = trim($subLine);
+				if (!empty($subLine)) {
+					$lines[] = '<div style="margin:0;padding:0;">' . $subLine . '</div>';
 				}
 			}
 		}
+
+		return $lines;
 	}
 
 	// phpcs:disable PEAR.NamingConventions.ValidFunctionName.ScopeNotCamelCaps

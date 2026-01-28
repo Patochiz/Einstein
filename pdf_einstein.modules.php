@@ -400,7 +400,7 @@ class pdf_einstein extends ModelePDFCommandes
 				// Loop on each lines
 				for ($i = 0; $i < $nblines; $i++) {
 					$curY = $nexY;
-					$pdf->SetFont('', '', $default_font_size - 2); // Smaller font for table content
+					$pdf->SetFont('', '', $default_font_size - 1); // Increased font for table content
 					$pdf->SetTextColor(0, 0, 0);
 
 					$pdf->setTopMargin($tab_top_newpage);
@@ -454,10 +454,10 @@ class pdf_einstein extends ModelePDFCommandes
 								$qty_with_unit .= ' ' . $unit;
 							}
 
-							// 35% for description, 65% for detail with qty at the end
+							// 45% for description, 55% for detail with qty at the end
 							$object->lines[$i]->desc = '<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>';
-							$object->lines[$i]->desc .= '<td width="35%" valign="top" align="left">' . $processedDesc . '</td>';
-							$object->lines[$i]->desc .= '<td width="65%" valign="top" align="left">' . $processedDetail;
+							$object->lines[$i]->desc .= '<td width="45%" valign="top" align="left">' . $processedDesc . '</td>';
+							$object->lines[$i]->desc .= '<td width="55%" valign="top" align="left">' . $processedDetail;
 							$object->lines[$i]->desc .= '<br><strong>Qté: ' . $qty_with_unit . '</strong></td>';
 							$object->lines[$i]->desc .= '</tr></table>';
 						}
@@ -548,6 +548,31 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 
 					$pdf->SetFont('', '', $default_font_size - 2); // We reposition the default font
+
+					// Display matiere extrafield if exists (in magenta, below description)
+					if (!$isTitleService && !empty($object->lines[$i]->array_options['options_matiere'])) {
+						$matiere = $object->lines[$i]->array_options['options_matiere'];
+
+						// Set magenta color (RGB: 255, 0, 255)
+						$pdf->SetTextColor(255, 0, 255);
+
+						// Position at start of description column
+						$pdf->SetXY($this->posxdesc, $nexY);
+
+						// Display "Matière :" in bold
+						$pdf->SetFont('', 'B', $default_font_size - 2);
+						$matiereWidth = $pdf->GetStringWidth('Matière : ');
+						$pdf->Cell($matiereWidth, 3, 'Matière : ', 0, 0, 'L');
+
+						// Display matiere value in regular font
+						$pdf->SetFont('', '', $default_font_size - 2);
+						$availableWidth = ($hasDetailColumn ? $this->posxlistecolis : $this->posxqty) - $this->posxdesc - $matiereWidth;
+						$pdf->Cell($availableWidth, 3, $matiere, 0, 1, 'L');
+
+						// Update Y position and reset color to black
+						$nexY = $pdf->GetY();
+						$pdf->SetTextColor(0, 0, 0);
+					}
 
 					// VAT Rate - removed, not needed for order preparation document
 

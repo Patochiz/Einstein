@@ -1738,23 +1738,36 @@ class pdf_einstein extends ModelePDFCommandes
 				$result = $object->fetch_contact($arrayidcontact[0]);
 			}
 
-			// Recipient name
-			if ($usecontact && ($object->contact->socid != $object->thirdparty->id && (!isset($conf->global->MAIN_USE_COMPANY_NAME_OF_CONTACT) || getDolGlobalString('MAIN_USE_COMPANY_NAME_OF_CONTACT')))) {
-				$thirdparty = $object->contact;
+			// Recipient name and address
+			if ($usecontact) {
+				// Use SHIPPING contact as primary data source
+				$carac_client_name = $object->contact->getFullName($outputlangs);
+				if (empty(trim($carac_client_name))) {
+					$carac_client_name = pdfBuildThirdpartyName($object->thirdparty, $outputlangs);
+				}
+
+				// Build address from SHIPPING contact fields
+				$carac_client = '';
+				if (!empty($object->contact->address)) {
+					$carac_client .= $outputlangs->convToOutputCharset($object->contact->address)."\n";
+				}
+				if (!empty($object->contact->zip) || !empty($object->contact->town)) {
+					$carac_client .= trim($object->contact->zip.' '.$object->contact->town)."\n";
+				}
+				if (!empty($object->contact->country)) {
+					$carac_client .= $outputlangs->convToOutputCharset($object->contact->country);
+				}
+
+				// Add phone
+				if (!empty($object->contact->phone_pro)) {
+					$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_pro;
+				} elseif (!empty($object->contact->phone_mobile)) {
+					$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_mobile;
+				}
 			} else {
-				$thirdparty = $object->thirdparty;
-			}
-
-			$carac_client_name = pdfBuildThirdpartyName($thirdparty, $outputlangs);
-
-			$mode =  'target';
-			$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, ($usecontact ? $object->contact : ''), $usecontact, $mode, $object);
-
-			// Add phone number if shipping contact is defined
-			if ($usecontact && !empty($object->contact->phone_pro)) {
-				$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_pro;
-			} elseif ($usecontact && !empty($object->contact->phone_mobile)) {
-				$carac_client .= "\n".$outputlangs->transnoentities("Phone").': '.$object->contact->phone_mobile;
+				// Fallback: use thirdparty data
+				$carac_client_name = pdfBuildThirdpartyName($object->thirdparty, $outputlangs);
+				$carac_client = pdf_build_address($outputlangs, $this->emetteur, $object->thirdparty, '', false, 'target', $object);
 			}
 
 			// Show recipient

@@ -456,6 +456,8 @@ class pdf_einstein extends ModelePDFCommandes
 						if (!empty($object->lines[$i]->array_options['options_detail'])) {
 							$detail = $object->lines[$i]->array_options['options_detail'];
 						}
+						// Remove background-color styles from detail to avoid colored backgrounds on PDF
+						$detail = preg_replace('/background-color\s*:\s*[^;\"\']+;?/', '', $detail);
 						// Create a 2-column table with description and detail (only if detail exists)
 						// This table will extend into Qty column space for more horizontal room
 						if ($isProduct && !empty($detail)) {

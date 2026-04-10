@@ -424,15 +424,45 @@ class pdf_einstein extends ModelePDFCommandes
 					$pdf->SetFont('', '', $default_font_size - 1); // Increased font for table content
 					$pdf->SetTextColor(0, 0, 0);
 
-					$pdf->setTopMargin($tab_top_newpage);
-					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
-					$pageposbefore = $pdf->getPage();
-
 					// Check if this is ECO_TAXE service (ID 288) - don't display it in the PDF
 					$isEcoTaxe = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 288);
 
 					// Check if this is the special "Libelle_Cde" service (ID 361) used as title
 					$isTitleService = (isset($object->lines[$i]->fk_product) && $object->lines[$i]->fk_product == 361);
+
+					// Orphan control: if this is a title service near the bottom of the page, force a
+					// page break BEFORE rendering it so the title stays with its following products.
+					if ($isTitleService) {
+						$contentThreshold = $this->page_hauteur - $heightforfooter - $heightforfreetext - $heightforinfotot;
+						$tabTopCurrent = ($pagenb == 1) ? $tab_top : $tab_top_newpage;
+						$remaining = $contentThreshold - $curY;
+						$minSpace = 15; // title (~5mm) + at least one product line (~8mm) + spacing
+						if ($remaining < $minSpace && $curY > $tabTopCurrent + 20) {
+							// Not enough space: draw borders/footer for current page, then add a new page
+							if ($pagenb == 1) {
+								$this->_tableau($pdf, $tab_top, $this->page_hauteur - $tab_top - $heightforfooter, 0, $outputlangs, 0, 1, $object->multicurrency_code, null, $object);
+							} else {
+								$this->_tableau($pdf, $tab_top_newpage, $this->page_hauteur - $tab_top_newpage - $heightforfooter, 0, $outputlangs, 1, 1, $object->multicurrency_code, null, $object);
+							}
+							$this->_pagefoot($pdf, $object, $outputlangs, 1);
+							$pagenb++;
+							$pdf->AddPage('', '', true);
+							if (!empty($tplidx)) {
+								$pdf->useTemplate($tplidx);
+							}
+							$pdf->setPage($pagenb);
+							$pdf->setPageOrientation('', 1, 0);
+							if (!getDolGlobalInt('MAIN_PDF_DONOTREPEAT_HEAD')) {
+								$this->_pagehead($pdf, $object, 0, $outputlangs);
+							}
+							$curY = $tab_top_newpage;
+							$nexY = $tab_top_newpage;
+						}
+					}
+
+					$pdf->setTopMargin($tab_top_newpage);
+					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
+					$pageposbefore = $pdf->getPage();
 
 					// Description of product line
 					$curX = $this->posxdesc - 1;

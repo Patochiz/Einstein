@@ -250,7 +250,7 @@ class pdf_einstein extends ModelePDFCommandes
 
 				$objectref = dol_sanitizeFileName($object->ref);
 				$dir = $conf->commande->multidir_output[$object->entity]."/".$objectref;
-				$file = $dir."/".$objectref.$suffix."_FP.pdf";
+				$file = $dir."/".$objectref.$suffix."-FP.pdf";
 			}
 
 			if (!file_exists($dir)) {

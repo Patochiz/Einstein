@@ -524,8 +524,8 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->SetXY($curX, $curY);
 						// Use ref_chantier extrafield instead of description
 						$titleText = '';
-						if (!empty($object->lines[$i]->array_options['options_ref_chantier'])) {
-							$titleText = $object->lines[$i]->array_options['options_ref_chantier'];
+						if (!empty($object->lines[$i]->array_options['options_ref_commande'])) {
+							$titleText = $object->lines[$i]->array_options['options_ref_commande'];
 						}
 						// Decode HTML entities and convert for output
 						$titleText = html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -561,8 +561,8 @@ class pdf_einstein extends ModelePDFCommandes
 							$pdf->SetXY($curX, $curY);
 							// Use ref_chantier extrafield instead of description
 							$titleText = '';
-							if (!empty($object->lines[$i]->array_options['options_ref_chantier'])) {
-								$titleText = $object->lines[$i]->array_options['options_ref_chantier'];
+							if (!empty($object->lines[$i]->array_options['options_ref_commande'])) {
+								$titleText = $object->lines[$i]->array_options['options_ref_commande'];
 							}
 							// Decode HTML entities and convert for output
 							$titleText = html_entity_decode($titleText, ENT_QUOTES | ENT_HTML5, 'UTF-8');

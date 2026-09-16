@@ -433,7 +433,7 @@ class pdf_einstein extends ModelePDFCommandes
 					// Orphan control: if this is a title service near the bottom of the page, force a
 					// page break BEFORE rendering it so the title stays with its following products.
 					if ($isTitleService) {
-						$contentThreshold = $this->page_hauteur - $heightforfooter - $heightforfreetext - $heightforinfotot;
+						$contentThreshold = $this->page_hauteur - $heightforfooter - $heightforfreetext;
 						$tabTopCurrent = ($pagenb == 1) ? $tab_top : $tab_top_newpage;
 						$remaining = $contentThreshold - $curY;
 						$minSpace = 15; // title (~5mm) + at least one product line (~8mm) + spacing
@@ -461,7 +461,7 @@ class pdf_einstein extends ModelePDFCommandes
 					}
 
 					$pdf->setTopMargin($tab_top_newpage);
-					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
+					$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext); // The only function to edit the bottom margin of current page to set it.
 					$pageposbefore = $pdf->getPage();
 
 					// Description of product line
@@ -554,7 +554,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->rollbackTransaction(true);
 						$pageposafter = $pageposbefore;
 						//print $pageposafter.'-'.$pageposbefore;exit;
-						$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext + $heightforinfotot); // The only function to edit the bottom margin of current page to set it.
+						$pdf->setPageOrientation('', 1, $heightforfooter + $heightforfreetext); // The only function to edit the bottom margin of current page to set it.
 						if ($isTitleService) {
 							$pdf->SetFont('', 'B', $default_font_size);
 							$fullWidth = $this->posxlistecolis - $this->posxdesc;
@@ -588,7 +588,7 @@ class pdf_einstein extends ModelePDFCommandes
 						}
 						$pageposafter = $pdf->getPage();
 						$posyafter = $pdf->GetY();
-						if ($posyafter > ($this->page_hauteur - ($heightforfooter + $heightforfreetext + $heightforinfotot))) {	// There is no space left for total+free text
+						if ($posyafter > ($this->page_hauteur - ($heightforfooter + $heightforfreetext))) {	// There is no space left for total+free text
 							if ($i == ($nblines - 1)) {	// No more lines, and no space left to show total, so we create a new page
 								$pdf->AddPage('', '', true);
 								if (!empty($tplidx)) {
@@ -758,6 +758,24 @@ class pdf_einstein extends ModelePDFCommandes
 						if (!getDolGlobalInt('MAIN_PDF_DONOTREPEAT_HEAD')) {
 							$this->_pagehead($pdf, $object, 0, $outputlangs);
 						}
+					}
+				}
+
+				// If content extends past the COLISAGE FINAL zone, draw current page as
+				// intermediate and add a new page so COLISAGE FINAL has room.
+				$colisageZoneStart = $this->page_hauteur - $heightforinfotot - $heightforfreetext - $heightforfooter;
+				if ($nexY > $colisageZoneStart) {
+					$tabTopCurrent = ($pagenb == 1) ? $tab_top : $tab_top_newpage;
+					$this->_tableau($pdf, $tabTopCurrent, $this->page_hauteur - $tabTopCurrent - $heightforfooter, 0, $outputlangs, ($pagenb == 1 ? 0 : 1), 0, $object->multicurrency_code, null, $object);
+					$this->_pagefoot($pdf, $object, $outputlangs, 1);
+					$pagenb++;
+					$pdf->AddPage('', '', true);
+					if (!empty($tplidx)) {
+						$pdf->useTemplate($tplidx);
+					}
+					$pdf->setPage($pagenb);
+					if (!getDolGlobalInt('MAIN_PDF_DONOTREPEAT_HEAD')) {
+						$this->_pagehead($pdf, $object, 0, $outputlangs);
 					}
 				}
 

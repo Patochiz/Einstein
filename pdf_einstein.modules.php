@@ -488,12 +488,14 @@ class pdf_einstein extends ModelePDFCommandes
 						}
 						// Remove background-color styles from detail to avoid colored backgrounds on PDF
 						$detail = preg_replace('/background-color\s*:\s*[^;\"\']+;?/', '', $detail);
+						// Ordres de transformation (module DiamantUtils) liés à la ligne, après un retour à la ligne
+						$otHtml = $isProduct ? $this->getTransformationOrdersHtml($object, $object->lines[$i], $outputlangs) : '';
 						// Create a 2-column table with description and detail (only if detail exists)
 						// This table will extend into Qty column space for more horizontal room
 						if ($isProduct && !empty($detail)) {
 							$hasDetailColumn = true;
 							// Use Dolibarr's native HTML processing function for both columns
-							$processedDesc = dol_htmlentitiesbr($originalDesc);
+							$processedDesc = dol_htmlentitiesbr($originalDesc).$otHtml;
 							$processedDetail = dol_htmlentitiesbr($detail);
 
 							// Get quantity to append to detail column
@@ -513,6 +515,9 @@ class pdf_einstein extends ModelePDFCommandes
 							$object->lines[$i]->desc .= '<td width="55%" valign="top" align="left">' . $processedDetail;
 							$object->lines[$i]->desc .= '<br><strong>Qté: ' . $qty_with_unit . '</strong></td>';
 							$object->lines[$i]->desc .= '</tr></table>';
+						} elseif ($otHtml !== '') {
+							// Description en HTML (conserve les retours à la ligne d'un texte simple) puis ordres
+							$object->lines[$i]->desc = dol_htmlentitiesbr($originalDesc).$otHtml;
 						}
 					}
 
@@ -1533,6 +1538,63 @@ class pdf_einstein extends ModelePDFCommandes
 				$pdf->SetAutoPageBreak($autoPageBreak);
 			}
 		}
+	}
+
+	/**
+	 * Ordres de transformation (module DiamantUtils) liés à une ligne de commande :
+	 * pour chacun, un lien vers l'ordre et son statut, précédés d'un retour à la ligne.
+	 * Les ordres annulés sont ignorés. Les ordres de la commande sont chargés en une seule requête.
+	 *
+	 * @param	Commande		$object			Commande
+	 * @param	OrderLine		$line			Ligne de commande
+	 * @param	Translate		$outputlangs	Langue du document
+	 * @return	string							HTML à ajouter à la description (vide si aucun ordre)
+	 */
+	protected function getTransformationOrdersHtml($object, $line, $outputlangs)
+	{
+		static $ordersByLine = array();
+
+		if (!isModEnabled('diamantutils') || empty($object->id)) {
+			return '';
+		}
+
+		if (!isset($ordersByLine[$object->id])) {
+			$ordersByLine[$object->id] = array();
+			// Statuts DiamantUtils : 0 brouillon, 1 validé, 2 consommé, 9 annulé
+			$sql = "SELECT rowid, ref, status, fk_commandedet FROM ".MAIN_DB_PREFIX."diamantutils_transfo";
+			$sql .= " WHERE fk_commande = ".((int) $object->id)." AND fk_commandedet > 0 AND status <> 9";
+			$sql .= " ORDER BY rowid";
+			$resql = $this->db->query($sql);
+			if ($resql) {
+				while ($obj = $this->db->fetch_object($resql)) {
+					$ordersByLine[$object->id][(int) $obj->fk_commandedet][] = $obj;
+				}
+				$this->db->free($resql);
+			}
+		}
+
+		$lineid = (int) (!empty($line->id) ? $line->id : (isset($line->rowid) ? $line->rowid : 0));
+		if ($lineid <= 0 || empty($ordersByLine[$object->id][$lineid])) {
+			return '';
+		}
+
+		$outputlangs->load('diamantutils@diamantutils');
+		$labels = array(
+			0 => array($outputlangs->transnoentities('Draft'), '#808080'),
+			1 => array($outputlangs->transnoentities('Validated'), '#bc9526'),
+			2 => array($outputlangs->transnoentities('DiamantutilsStatusConsumed'), '#3c8c5f'),
+		);
+		$baseurl = dol_buildpath('/diamantutils/transformation_card.php', 2);
+
+		$html = '';
+		foreach ($ordersByLine[$object->id][$lineid] as $obj) {
+			$status = (int) $obj->status;
+			$label = isset($labels[$status]) ? $labels[$status][0] : (string) $status;
+			$color = isset($labels[$status]) ? $labels[$status][1] : '#000000';
+			$html .= '<br><a href="'.dol_escape_htmltag($baseurl.'?id='.((int) $obj->rowid)).'">'.dol_escape_htmltag($obj->ref).'</a>';
+			$html .= ' <font color="'.$color.'">('.dol_escape_htmltag($label).')</font>';
+		}
+		return $html;
 	}
 
 	/**

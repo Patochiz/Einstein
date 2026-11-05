@@ -551,7 +551,7 @@ class pdf_einstein extends ModelePDFCommandes
 						$pdf->Cell($matiereWidth, 3, 'Matière : ', 0, 0, 'L');
 						$pdf->SetFont('', '', $default_font_size - 2);
 						$availableWidth = ($hasDetailColumn ? $this->posxlistecolis : $this->posxqty) - $this->posxdesc - $matiereWidth;
-						$pdf->Cell($availableWidth, 3, $matiere, 0, 1, 'L');
+						$pdf->MultiCell($availableWidth, 3, $matiere, 0, 'L', false, 1); // Texte long : plusieurs lignes (ex. ligne « Lots : » du Colisage)
 						$pdf->SetTextColor(0, 0, 0);
 					}
 					$pageposafter = $pdf->getPage();
@@ -588,7 +588,7 @@ class pdf_einstein extends ModelePDFCommandes
 							$pdf->Cell($matiereWidth, 3, 'Matière : ', 0, 0, 'L');
 							$pdf->SetFont('', '', $default_font_size - 2);
 							$availableWidth = ($hasDetailColumn ? $this->posxlistecolis : $this->posxqty) - $this->posxdesc - $matiereWidth;
-							$pdf->Cell($availableWidth, 3, $matiere, 0, 1, 'L');
+							$pdf->MultiCell($availableWidth, 3, $matiere, 0, 'L', false, 1); // Texte long : plusieurs lignes (ex. ligne « Lots : » du Colisage)
 							$pdf->SetTextColor(0, 0, 0);
 						}
 						$pageposafter = $pdf->getPage();
